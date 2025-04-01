@@ -1,549 +1,279 @@
-<!-- results.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Comparison Results</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .header {
-            background-color: #f8f9fa;
-            padding: 20px 0;
-            margin-bottom: 30px;
-        }
-        .footer {
-            background-color: #f8f9fa;
-            padding: 20px 0;
-            margin-top: 30px;
-            text-align: center;
-        }
-        .product-image {
-            max-width: 100%;
-            height: auto;
-            max-height: 200px;
-        }
-        .winner {
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-        }
-        .price-difference {
-            font-weight: bold;
-            color: #28a745;
-        }
-    </style>
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <h1>Product Price Comparison</h1>
-                    <p>Compare prices between Flipkart and Amazon</p>
-                </div>
-                <div class="col-md-6 text-end">
-                    {% if session.get('user_id') %}
-                        <p>Welcome, {{ session.get('username') }}!</p>
-                        <a href="{{ url_for('price_history') }}" class="btn btn-info">Price History</a>
-                        <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
-                    {% else %}
-                        <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a>
-                        <a href="{{ url_for('register') }}" class="btn btn-outline-primary">Register</a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </header>
+{% extends "base.html" %}
 
-    <div class="container">
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-info">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+{% block title %}Price Comparison Results{% endblock %}
 
-        <div class="card mb-4">
+{% block content %}
+<h2 class="mb-4 text-center">Product Comparison Results</h2>
+
+<div class="row">
+    <!-- Flipkart Product -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
             <div class="card-header bg-primary text-white">
-                <h2>Comparison Results</h2>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="m-0">Flipkart</h5>
+                    {% if comparison.overall_winner == 'Flipkart' %}
+                        <span class="badge bg-success">Best Overall</span>
+                    {% endif %}
+                </div>
             </div>
             <div class="card-body">
-                <div class="alert alert-success">
-                    <h4>Recommendation</h4>
-                    {% if comparison.overall_winner == 'Equal' %}
-                        <p>Both platforms offer similar value for this product.</p>
+                <div class="text-center mb-3">
+                    {% if flipkart.image_url %}
+                        <img src="{{ flipkart.image_url }}" alt="{{ flipkart.name }}" class="product-img" style="max-height: 200px;">
                     {% else %}
-                        <p>We recommend buying from <strong>{{ comparison.overall_winner }}</strong> for the best overall value.</p>
-                    {% endif %}
-
-                    {% if comparison.price_winner != 'Equal' and comparison.price_winner != 'Unavailable' %}
-                        <p>
-                            <strong>{{ comparison.price_winner }}</strong> offers a better price 
-                            (₹{{ comparison.price_diff|round(2) }} cheaper, {{ comparison.price_diff_percent|round(1) }}% savings)
-                        </p>
+                        <div class="text-center p-5 bg-light rounded">
+                            <i class="bi bi-image" style="font-size: 5rem;"></i>
+                        </div>
                     {% endif %}
                 </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card mb-4 {% if comparison.overall_winner == 'Flipkart' %}winner{% endif %}">
-                    <div class="card-header">
-                        <h3>Flipkart</h3>
-                    </div>
-                    <div class="card-body">
-                        <h4>{{ flipkart.name }}</h4>
-                        {% if flipkart.image_url %}
-                            <img src="{{ flipkart.image_url }}" alt="{{ flipkart.name }}" class="product-image mb-3">
-                        {% endif %}
-                        <p><strong>Price:</strong> ₹{{ flipkart.price|round(2) }}
-                           {% if comparison.price_winner == 'Flipkart' %} 
-                               <span class="badge bg-success">Best Price</span>
-                           {% endif %}
-                        </p>
-                        <p><strong>Rating:</strong> {{ flipkart.rating }} / 5
-                           {% if comparison.rating_winner == 'Flipkart' %} 
-                               <span class="badge bg-success">Best Rating</span>
-                           {% endif %}
-                        </p>
-                        <p><strong>Reviews:</strong> {{ flipkart.reviews_count }}
-                           {% if comparison.reviews_count_winner == 'Flipkart' %} 
-                               <span class="badge bg-success">More Reviews</span>
-                           {% endif %}
-                        </p>
-                        <p><strong>Category:</strong> {{ flipkart.category }}</p>
-                        <div class="mt-3">
-                            <a href="{{ flipkart.url }}" target="_blank" class="btn btn-primary">View on Flipkart</a>
-                            
-                            {% if session.get('user_id') %}
-                                <form action="{{ url_for('track_price') }}" method="post" class="mt-2">
-                                    <input type="hidden" name="listing_id" value="{{ flipkart_listing_id }}">
-                                    <div class="input-group mb-3">
-                                        <input type="number" class="form-control" name="threshold" placeholder="Price threshold" required>
-                                        <button class="btn btn-outline-secondary" type="submit">Track Price</button>
-                                    </div>
-                                </form>
-                            {% endif %}
-                        </div>
-                    </div>
+                
+                <h5 class="card-title">{{ flipkart.name }}</h5>
+                
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div class="price">₹{{ "%.2f"|format(flipkart.price) }}</div>
+                    {% if comparison.price_winner == 'Flipkart' %}
+                        <span class="badge bg-success">Best Price</span>
+                    {% endif %}
                 </div>
-            </div>
-            
-            <div class="col-md-6">
-                <div class="card mb-4 {% if comparison.overall_winner == 'Amazon' %}winner{% endif %}">
-                    <div class="card-header">
-                        <h3>Amazon</h3>
+                
+                <div class="d-flex align-items-center mt-2">
+                    <div class="me-2">
+                        <span class="rating">
+                            {% for i in range(5) %}
+                                {% if i < flipkart.rating|int %}
+                                    <i class="bi bi-star-fill"></i>
+                                {% elif i < flipkart.rating|round(0, 'ceil')|int and flipkart.rating - i > 0 %}
+                                    <i class="bi bi-star-half"></i>
+                                {% else %}
+                                    <i class="bi bi-star"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </span>
                     </div>
-                    <div class="card-body">
-                        <h4>{{ amazon.name }}</h4>
-                        {% if amazon.image_url %}
-                            <img src="{{ amazon.image_url }}" alt="{{ amazon.name }}" class="product-image mb-3">
-                        {% endif %}
-                        <p><strong>Price:</strong> ₹{{ amazon.price|round(2) }}
-                           {% if comparison.price_winner == 'Amazon' %} 
-                               <span class="badge bg-success">Best Price</span>
-                           {% endif %}
-                        </p>
-                        <p><strong>Rating:</strong> {{ amazon.rating }} / 5
-                           {% if comparison.rating_winner == 'Amazon' %} 
-                               <span class="badge bg-success">Best Rating</span>
-                           {% endif %}
-                        </p>
-                        <p><strong>Reviews:</strong> {{ amazon.reviews_count }}
-                           {% if comparison.reviews_count_winner == 'Amazon' %} 
-                               <span class="badge bg-success">More Reviews</span>
-                           {% endif %}
-                        </p>
-                        <p><strong>Category:</strong> {{ amazon.category }}</p>
-                        <div class="mt-3">
-                            <a href="{{ amazon.url }}" target="_blank" class="btn btn-warning">View on Amazon</a>
-                            
-                            {% if session.get('user_id') and amazon.url %}
-                                <form action="{{ url_for('track_price') }}" method="post" class="mt-2">
-                                    <input type="hidden" name="listing_id" value="{{ amazon_listing_id }}">
-                                    <div class="input-group mb-3">
-                                        <input type="number" class="form-control" name="threshold" placeholder="Price threshold" required>
-                                        <button class="btn btn-outline-secondary" type="submit">Track Price</button>
-                                    </div>
-                                </form>
-                            {% endif %}
-                        </div>
-                    </div>
+                    <div>{{ flipkart.rating }} ({{ flipkart.reviews_count }} reviews)</div>
                 </div>
-            </div>
-        </div>
-
-        <div class="card mb-4">
-            <div class="card-header">
-                <h3>Product Descriptions</h3>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h4>Flipkart Description</h4>
-                        <p>{{ flipkart.description }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h4>Amazon Description</h4>
-                        <p>{{ amazon.description }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Home</a>
-    </div>
-
-    <footer class="footer">
-        <div class="container">
-            <p>Product Price Comparison Tool &copy; 2025</p>
-        </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
-
-<!-- login.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Product Price Comparison</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .header {
-            background-color: #f8f9fa;
-            padding: 20px 0;
-            margin-bottom: 30px;
-        }
-        .footer {
-            background-color: #f8f9fa;
-            padding: 20px 0;
-            margin-top: 30px;
-            text-align: center;
-        }
-        .login-form {
-            max-width: 500px;
-            margin: 0 auto;
-        }
-    </style>
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <h1>Product Price Comparison</h1>
-                    <p>Compare prices between Flipkart and Amazon</p>
-                </div>
-                <div class="col-md-6 text-end">
-                    <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Home</a>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <div class="container">
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-info">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="card login-form">
-            <div class="card-header bg-primary text-white">
-                <h2>Login</h2>
-            </div>
-            <div class="card-body">
-                <form action="{{ url_for('login') }}" method="post">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Login</button>
-                </form>
+                
+                <hr>
+                
+                <h6>Product Description</h6>
+                <p class="card-text">{{ flipkart.description|truncate(200) }}</p>
+                
                 <div class="mt-3">
-                    <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <footer class="footer">
-        <div class="container">
-            <p>Product Price Comparison Tool &copy; 2025</p>
-        </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
-
-<!-- register.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register - Product Price Comparison</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .header {
-            background-color: #f8f9fa;
-            padding: 20px 0;
-            margin-bottom: 30px;
-        }
-        .footer {
-            background-color: #f8f9fa;
-            padding: 20px 0;
-            margin-top: 30px;
-            text-align: center;
-        }
-        .register-form {
-            max-width: 500px;
-            margin: 0 auto;
-        }
-    </style>
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <h1>Product Price Comparison</h1>
-                    <p>Compare prices between Flipkart and Amazon</p>
-                </div>
-                <div class="col-md-6 text-end">
-                    <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Home</a>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <div class="container">
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-info">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="card register-form">
-            <div class="card-header bg-primary text-white">
-                <h2>Register</h2>
-            </div>
-            <div class="card-body">
-                <form action="{{ url_for('register') }}" method="post">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Register</button>
-                </form>
-                <div class="mt-3">
-                    <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <footer class="footer">
-        <div class="container">
-            <p>Product Price Comparison Tool &copy; 2025</p>
-        </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
-
-<!-- history.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Price History - Product Price Comparison</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        .header {
-            background-color: #f8f9fa;
-            padding: 20px 0;
-            margin-bottom: 30px;
-        }
-        .footer {
-            background-color: #f8f9fa;
-            padding: 20px 0;
-            margin-top: 30px;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <h1>Product Price Comparison</h1>
-                    <p>Compare prices between Flipkart and Amazon</p>
-                </div>
-                <div class="col-md-6 text-end">
-                    {% if session.get('user_id') %}
-                        <p>Welcome, {{ session.get('username') }}!</p>
-                        <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Home</a>
-                        <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary">Logout</a>
+                    <h6>Reviews</h6>
+                    {% if flipkart.reviews %}
+                        {% for review in flipkart.reviews[:2] %}
+                            <div class="mb-2 p-2 bg-light rounded">
+                                <p class="mb-0">{{ review|truncate(100) }}</p>
+                            </div>
+                        {% endfor %}
                     {% else %}
-                        <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a>
-                        <a href="{{ url_for('register') }}" class="btn btn-outline-primary">Register</a>
+                        <p>No reviews available</p>
+                    {% endif %}
+                </div>
+                
+                <div class="d-grid gap-2 mt-3">
+                    <a href="{{ flipkart.url }}" target="_blank" class="btn btn-primary">
+                        <i class="bi bi-box-arrow-up-right"></i> View on Flipkart
+                    </a>
+                    
+                    {% if session.get('user_id') %}
+                        <form method="POST" action="{{ url_for('track_price') }}">
+                            <input type="hidden" name="listing_id" value="{{ flipkart_listing_id }}">
+                            <div class="input-group mt-2">
+                                <input type="number" name="threshold" class="form-control" 
+                                       placeholder="Price alert threshold" step="0.01" min="0" required>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-bell"></i> Track Price
+                                </button>
+                            </div>
+                        </form>
                     {% endif %}
                 </div>
             </div>
         </div>
-    </header>
-
-    <div class="container">
-        {% with messages = get_flashed_messages() %}
-            {% if messages %}
-                {% for message in messages %}
-                    <div class="alert alert-info">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <h2>Your Tracked Products</h2>
-        
-        {% if products|length > 0 %}
-            {% for product in products %}
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h3>{{ product.product_name }}</h3>
-                            <div>
-                                <span class="badge {% if product.is_active %}bg-success{% else %}bg-secondary{% endif %}">
-                                    {% if product.is_active %}Active{% else %}Inactive{% endif %}
-                                </span>
-                                <span class="badge bg-info">{{ product.platform }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <canvas id="chart{{ product.tracking_id }}"></canvas>
-                            </div>
-                            <div class="col-md-4">
-                                <p><strong>Notification Threshold:</strong> ₹{{ product.threshold }}</p>
-                                <p><a href="{{ product.product_link }}" target="_blank">View Product</a></p>
-                                
-                                <div class="btn-group mt-3">
-                                    <a href="{{ url_for('toggle_tracking', tracking_id=product.tracking_id) }}" class="btn btn-sm {% if product.is_active %}btn-warning{% else %}btn-success{% endif %}">
-                                        {% if product.is_active %}Pause Tracking{% else %}Resume Tracking{% endif %}
-                                    </a>
-                                    <a href="{{ url_for('delete_tracking', tracking_id=product.tracking_id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this tracking?')">
-                                        Delete
-                                    </a>
-                                </div>
-
-                                <h5 class="mt-4">Price History</h5>
-                                <table class="table table-sm">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Price</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for entry in product.history %}
-                                            <tr>
-                                                <td>{{ entry.timestamp.strftime('%Y-%m-%d') }}</td>
-                                                <td>₹{{ entry.price_value }}</td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+    </div>
+    
+    <!-- Amazon Product -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-warning text-dark">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="m-0">Amazon</h5>
+                    {% if comparison.overall_winner == 'Amazon' %}
+                        <span class="badge bg-success">Best Overall</span>
+                    {% endif %}
                 </div>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    {% if amazon.image_url %}
+                        <img src="{{ amazon.image_url }}" alt="{{ amazon.name }}" class="product-img" style="max-height: 200px;">
+                    {% else %}
+                        <div class="text-center p-5 bg-light rounded">
+                            <i class="bi bi-image" style="font-size: 5rem;"></i>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <h5 class="card-title">{{ amazon.name }}</h5>
+                
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div class="price">₹{{ "%.2f"|format(amazon.price) }}</div>
+                    {% if comparison.price_winner == 'Amazon' %}
+                        <span class="badge bg-success">Best Price</span>
+                    {% endif %}
+                </div>
+                
+                <div class="d-flex align-items-center mt-2">
+                    <div class="me-2">
+                        <span class="rating">
+                            {% for i in range(5) %}
+                                {% if i < amazon.rating|int %}
+                                    <i class="bi bi-star-fill"></i>
+                                {% elif i < amazon.rating|round(0, 'ceil')|int and amazon.rating - i > 0 %}
+                                    <i class="bi bi-star-half"></i>
+                                {% else %}
+                                    <i class="bi bi-star"></i>
+                                {% endif %}
+                            {% endfor %}
+                        </span>
+                    </div>
+                    <div>{{ amazon.rating }} ({{ amazon.reviews_count }} reviews)</div>
+                </div>
+                
+                <hr>
+                
+                <h6>Product Description</h6>
+                <p class="card-text">{{ amazon.description|truncate(200) }}</p>
+                
+                <div class="mt-3">
+                    <h6>Reviews</h6>
+                    {% if amazon.reviews %}
+                        {% for review in amazon.reviews[:2] %}
+                            <div class="mb-2 p-2 bg-light rounded">
+                                <p class="mb-0">{{ review|truncate(100) }}</p>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p>No reviews available</p>
+                    {% endif %}
+                </div>
+                
+                <div class="d-grid gap-2 mt-3">
+                    <a href="{{ amazon.url }}" target="_blank" class="btn btn-warning text-dark">
+                        <i class="bi bi-box-arrow-up-right"></i> View on Amazon
+                    </a>
+                    
+                    {% if session.get('user_id') %}
+                        <form method="POST" action="{{ url_for('track_price') }}">
+                            <input type="hidden" name="listing_id" value="{{ amazon_listing_id }}">
+                            <div class="input-group mt-2">
+                                <input type="number" name="threshold" class="form-control" 
+                                       placeholder="Price alert threshold" step="0.01" min="0" required>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-bell"></i> Track Price
+                                </button>
+                            </div>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const ctx = document.getElementById('chart{{ product.tracking_id }}').getContext('2d');
-                        new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels: [{% for entry in product.history %}'{{ entry.timestamp.strftime("%Y-%m-%d") }}'{% if not loop.last %}, {% endif %}{% endfor %}].reverse(),
-                                datasets: [{
-                                    label: 'Price (₹)',
-                                    data: [{% for entry in product.history %}{{ entry.price_value }}{% if not loop.last %}, {% endif %}{% endfor %}].reverse(),
-                                    borderColor: 'rgb(75, 192, 192)',
-                                    tension: 0.1,
-                                    fill: false
-                                }]
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: {
-                                    title: {
-                                        display: true,
-                                        text: 'Price History'
-                                    },
-                                    tooltip: {
-                                        callbacks: {
-                                            label: function(context) {
-                                                return '₹' + context.raw;
-                                            }
-                                        }
-                                    }
-                                },
-                                scales: {
-                                    y: {
-                                        beginAtZero: false,
-                                        ticks: {
-                                            callback: function(value) {
-                                                return '₹' + value;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        });
-                    });
-                </script>
-            {% endfor %}
+<!-- Comparison Results -->
+<div class="comparison-result mb-4">
+    <h3 class="text-center mb-4">Comparison Summary</h3>
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Price Comparison</h5>
+                    {% if comparison.price_winner == 'Flipkart' %}
+                        <p class="mb-2">Flipkart is cheaper by ₹{{ "%.2f"|format(comparison.price_diff) }}</p>
+                        <p class="badge bg-success">Save {{ "%.1f"|format(comparison.price_diff_percent) }}%</p>
+                    {% elif comparison.price_winner == 'Amazon' %}
+                        <p class="mb-2">Amazon is cheaper by ₹{{ "%.2f"|format(comparison.price_diff) }}</p>
+                        <p class="badge bg-success">Save {{ "%.1f"|format(comparison.price_diff_percent) }}%</p>
+                    {% elif comparison.price_winner == 'Equal' %}
+                        <p>Both platforms have the same price</p>
+                    {% else %}
+                        <p>Price comparison not available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Rating Comparison</h5>
+                    {% if comparison.rating_winner == 'Flipkart' %}
+                        <p>Flipkart has better ratings</p>
+                        <div class="rating">
+                            <i class="bi bi-star-fill"></i> {{ flipkart.rating }} vs {{ amazon.rating }}
+                        </div>
+                    {% elif comparison.rating_winner == 'Amazon' %}
+                        <p>Amazon has better ratings</p>
+                        <div class="rating">
+                            <i class="bi bi-star-fill"></i> {{ amazon.rating }} vs {{ flipkart.rating }}
+                        </div>
+                    {% elif comparison.rating_winner == 'Equal' %}
+                        <p>Both platforms have the same rating</p>
+                        <div class="rating">
+                            <i class="bi bi-star-fill"></i> {{ amazon.rating }}
+                        </div>
+                    {% else %}
+                        <p>Rating comparison not available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Review Count</h5>
+                    {% if comparison.reviews_count_winner == 'Flipkart' %}
+                        <p>Flipkart has more reviews</p>
+                        <p class="fw-bold">{{ flipkart.reviews_count }} vs {{ amazon.reviews_count }}</p>
+                    {% elif comparison.reviews_count_winner == 'Amazon' %}
+                        <p>Amazon has more reviews</p>
+                        <p class="fw-bold">{{ amazon.reviews_count }} vs {{ flipkart.reviews_count }}</p>
+                    {% elif comparison.reviews_count_winner == 'Equal' %}
+                        <p>Both platforms have the same number of reviews</p>
+                        <p class="fw-bold">{{ amazon.reviews_count }}</p>
+                    {% else %}
+                        <p>Review count comparison not available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4 text-center">
+        <h4>Our Recommendation</h4>
+        {% if comparison.overall_winner == 'Flipkart' %}
+            <div class="alert alert-success">
+                <i class="bi bi-award"></i> We recommend buying from <strong>Flipkart</strong>
+            </div>
+        {% elif comparison.overall_winner == 'Amazon' %}
+            <div class="alert alert-success">
+                <i class="bi bi-award"></i> We recommend buying from <strong>Amazon</strong>
+            </div>
         {% else %}
             <div class="alert alert-info">
-                You are not tracking any products yet. Search for products and enable tracking to see them here.
+                <i class="bi bi-info-circle"></i> Both platforms offer similar value
             </div>
         {% endif %}
     </div>
+</div>
 
-    <footer class="footer">
-        <div class="container">
-            <p>Product Price Comparison Tool &copy; 2025</p>
-        </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+<!-- Other options -->
+<div class="text-center mb-5">
+    <h4>Not what you're looking for?</h4>
+    <a href="{{ url_for('index') }}" class="btn btn-primary">
+        <i class="bi bi-search"></i> Try Another Search
+    </a>
+</div>
+{% endblock %}

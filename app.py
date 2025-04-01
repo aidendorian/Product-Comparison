@@ -1,11 +1,17 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
-import requests
-from bs4 import BeautifulSoup
 import sqlite3
 from datetime import datetime
 import re
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
+from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import random
+import time
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -101,45 +107,128 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
-# Web scraping functions
-def get_flipkart_product_details(url):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    }
+# Setup WebDriver for scraping
+def setup_driver():
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+
+    USER_AGENTS = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+    ]
+    options.add_argument(f"user-agent={random.choice(USER_AGENTS)}")
+
+    return webdriver.Chrome(options=options)
+
+# Find product on Flipkart based on search query
+def find_flipkart_product(product_name):
+    driver = setup_driver()
     
     try:
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        driver.get(f'https://www.flipkart.com/search?q={product_name.replace(" ", "+")}')
+        
+        try:
+            close_button = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, '//button[contains(text(),"✕")]'))
+            )
+            close_button.click()
+        except:
+            pass
+        
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'a._1fQZEK, a._2rpwqI, a.s1Q9rs, a._8VNy32'))
+        )
+        
+        first_product = driver.find_element(By.CSS_SELECTOR, 'a._1fQZEK, a._2rpwqI, a.s1Q9rs, a._8VNy32')
+        flipkart_url = first_product.get_attribute("href")
+        return flipkart_url
+    except Exception as e:
+        print(f"Error finding Flipkart product: {e}")
+        return None
+    finally:
+        driver.quit()
+
+# Improved Web scraping functions
+def get_flipkart_product_details(url):
+    driver = setup_driver()
+    
+    try:
+        driver.get(url)
+        
+        try:
+            close_button = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, '//button[contains(text(),"✕")]'))
+            )
+            close_button.click()
+        except:
+            pass
+        
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'span.B_NuCI'))
+        )
         
         # Extract product name
-        product_name = soup.select_one('span.B_NuCI')
-        product_name = product_name.text.strip() if product_name else "Product name not found"
+        try:
+            product_name = driver.find_element(By.CSS_SELECTOR, 'span.B_NuCI').text.strip()
+        except:
+            product_name = "Product name not found"
         
         # Extract price
-        price_element = soup.select_one('div._30jeq3._16Jk6d')
-        price = price_element.text.strip() if price_element else "Price not found"
-        price = re.sub(r'[^\d.]', '', price) if price != "Price not found" else "0"
+        try:
+            price_element = driver.find_element(By.CSS_SELECTOR, 'div._30jeq3._16Jk6d')
+            price = price_element.text.strip()
+            price = re.sub(r'[^\d.]', '', price)
+        except:
+            price = "0"
         
         # Extract rating
-        rating_element = soup.select_one('div._3LWZlK')
-        rating = rating_element.text.strip() if rating_element else "No rating"
+        try:
+            rating_element = driver.find_element(By.CSS_SELECTOR, 'div._3LWZlK')
+            rating = rating_element.text.strip()
+        except:
+            rating = "0"
         
         # Extract reviews count
-        reviews_count_element = soup.select_one('span._2_R_DZ')
-        reviews_count = reviews_count_element.text.strip() if reviews_count_element else "No reviews"
-        reviews_count = re.search(r'(\d+(?:,\d+)*)\s+reviews', reviews_count) if reviews_count != "No reviews" else None
-        reviews_count = reviews_count.group(1).replace(',', '') if reviews_count else "0"
+        try:
+            reviews_count_element = driver.find_element(By.CSS_SELECTOR, 'span._2_R_DZ')
+            reviews_count = reviews_count_element.text.strip()
+            reviews_count = re.search(r'(\d+(?:,\d+)*)\s+reviews', reviews_count)
+            reviews_count = reviews_count.group(1).replace(',', '') if reviews_count else "0"
+        except:
+            reviews_count = "0"
         
         # Extract description
-        description_element = soup.select_one('div._1mXcCf.RmoJUa')
-        description = description_element.text.strip() if description_element else "No description available"
+        try:
+            description_element = driver.find_element(By.CSS_SELECTOR, 'div._1mXcCf.RmoJUa')
+            description = description_element.text.strip()
+        except:
+            description = "No description available"
         
         # Extract image
-        image_element = soup.select_one('img._396cs4')
-        image_url = image_element['src'] if image_element and 'src' in image_element.attrs else ""
+        try:
+            image_element = driver.find_element(By.CSS_SELECTOR, 'img._396cs4')
+            image_url = image_element.get_attribute('src')
+        except:
+            image_url = ""
         
         # Extract category
-        category = "Unknown"  # Flipkart doesn't have clear category tags, would need more complex parsing
+        category = "Unknown"  # Flipkart doesn't have clear category tags
+        
+        # Get reviews
+        reviews = []
+        try:
+            WebDriverWait(driver, 5).until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.ZmyHeo"))
+            )
+            review_elements = driver.find_elements(By.CSS_SELECTOR, "div.ZmyHeo")[:3]
+            reviews = [review.text.strip() for review in review_elements]
+        except:
+            pass
         
         return {
             'platform': 'Flipkart',
@@ -150,7 +239,8 @@ def get_flipkart_product_details(url):
             'description': description,
             'image_url': image_url,
             'category': category,
-            'url': url
+            'url': url,
+            'reviews': reviews
         }
     except Exception as e:
         print(f"Error scraping Flipkart: {e}")
@@ -163,77 +253,113 @@ def get_flipkart_product_details(url):
             'description': "Error fetching product details",
             'image_url': "",
             'category': "",
-            'url': url
+            'url': url,
+            'reviews': []
         }
+    finally:
+        driver.quit()
 
 def find_amazon_product(product_name):
-    search_url = f"https://www.amazon.in/s?k={product_name.replace(' ', '+')}"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    }
+    driver = setup_driver()
     
     try:
-        response = requests.get(search_url, headers=headers)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        driver.get(f'https://www.amazon.in/s?k={product_name.replace(" ", "+")}')
         
-        # Find the first product result
-        product_element = soup.select_one('div.s-result-item[data-component-type="s-search-result"]')
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, 'div[data-component-type="s-search-result"]'))
+        )
+        time.sleep(random.uniform(1, 3))
         
-        if not product_element:
-            return None
+        product = driver.find_element(By.CSS_SELECTOR, 'div[data-component-type="s-search-result"]')
+        link_element = product.find_element(By.CSS_SELECTOR, 'a.a-link-normal.s-no-outline')
         
-        # Extract the product URL
-        link_element = product_element.select_one('a.a-link-normal.s-no-outline')
-        if link_element and 'href' in link_element.attrs:
-            product_url = 'https://www.amazon.in' + link_element['href']
+        if link_element:
+            product_url = link_element.get_attribute('href')
             return product_url
         
         return None
     except Exception as e:
         print(f"Error finding Amazon product: {e}")
         return None
+    finally:
+        driver.quit()
 
 def get_amazon_product_details(url):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-    }
+    driver = setup_driver()
     
     try:
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        driver.get(url)
+        time.sleep(random.uniform(2, 4))
         
         # Extract product name
-        product_name = soup.select_one('#productTitle')
-        product_name = product_name.text.strip() if product_name else "Product name not found"
+        try:
+            product_name = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, 'productTitle'))
+            ).text.strip()
+        except:
+            product_name = "Product name not found"
         
         # Extract price
-        price_element = soup.select_one('span.a-price-whole')
-        price = price_element.text.strip() if price_element else "Price not found"
-        price = re.sub(r'[^\d.]', '', price) if price != "Price not found" else "0"
+        try:
+            price_element = driver.find_element(By.CSS_SELECTOR, 'span.a-price-whole')
+            price = price_element.text.strip()
+            price = re.sub(r'[^\d.]', '', price)
+        except:
+            price = "0"
         
         # Extract rating
-        rating_element = soup.select_one('span.a-icon-alt')
-        rating = rating_element.text.strip() if rating_element else "No rating"
-        rating = re.search(r'(\d+(?:\.\d+)?)\s+out\s+of\s+5\s+stars', rating) if rating != "No rating" else None
-        rating = rating.group(1) if rating else "0"
+        try:
+            rating_element = driver.find_element(By.CSS_SELECTOR, 'span.a-icon-alt')
+            rating = rating_element.text.strip()
+            rating = re.search(r'(\d+(?:\.\d+)?)\s+out\s+of\s+5\s+stars', rating)
+            rating = rating.group(1) if rating else "0"
+        except:
+            rating = "0"
         
         # Extract reviews count
-        reviews_count_element = soup.select_one('#acrCustomerReviewText')
-        reviews_count = reviews_count_element.text.strip() if reviews_count_element else "No reviews"
-        reviews_count = re.search(r'(\d+(?:,\d+)*)', reviews_count) if reviews_count != "No reviews" else None
-        reviews_count = reviews_count.group(1).replace(',', '') if reviews_count else "0"
+        try:
+            reviews_count_element = driver.find_element(By.ID, 'acrCustomerReviewText')
+            reviews_count = reviews_count_element.text.strip()
+            reviews_count = re.search(r'(\d+(?:,\d+)*)', reviews_count)
+            reviews_count = reviews_count.group(1).replace(',', '') if reviews_count else "0"
+        except:
+            reviews_count = "0"
         
         # Extract description
-        description_element = soup.select_one('#productDescription')
-        description = description_element.text.strip() if description_element else "No description available"
+        try:
+            description_element = driver.find_element(By.ID, 'productDescription')
+            description = description_element.text.strip()
+        except:
+            try:
+                description_element = driver.find_element(By.CSS_SELECTOR, '#feature-bullets')
+                description = description_element.text.strip()
+            except:
+                description = "No description available"
         
         # Extract image
-        image_element = soup.select_one('#landingImage')
-        image_url = image_element['src'] if image_element and 'src' in image_element.attrs else ""
+        try:
+            image_element = driver.find_element(By.ID, 'landingImage')
+            image_url = image_element.get_attribute('src')
+        except:
+            image_url = ""
         
         # Extract category
-        category_element = soup.select_one('a.a-link-normal.a-color-tertiary')
-        category = category_element.text.strip() if category_element else "Unknown"
+        try:
+            category_element = driver.find_element(By.CSS_SELECTOR, 'a.a-link-normal.a-color-tertiary')
+            category = category_element.text.strip()
+        except:
+            category = "Unknown"
+        
+        # Get reviews
+        reviews = []
+        try:
+            WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "cm-cr-dp-review-list"))
+            )
+            review_elements = driver.find_elements(By.CSS_SELECTOR, "div[data-hook='review-collapsed'] span")[:3]
+            reviews = [review.text.strip() for review in review_elements]
+        except:
+            pass
         
         return {
             'platform': 'Amazon',
@@ -244,7 +370,8 @@ def get_amazon_product_details(url):
             'description': description,
             'image_url': image_url,
             'category': category,
-            'url': url
+            'url': url,
+            'reviews': reviews
         }
     except Exception as e:
         print(f"Error scraping Amazon: {e}")
@@ -257,8 +384,11 @@ def get_amazon_product_details(url):
             'description': "Error fetching product details",
             'image_url': "",
             'category': "",
-            'url': url
+            'url': url,
+            'reviews': []
         }
+    finally:
+        driver.quit()
 
 def compare_products(flipkart_data, amazon_data):
     comparison = {}
@@ -378,6 +508,13 @@ def save_product_data(product_data):
         VALUES (?, ?, ?)
     """, (listing_id, product_data['price'], datetime.now()))
     
+    # Save reviews
+    for review_text in product_data.get('reviews', []):
+        c.execute("""
+            INSERT INTO REVIEW (listing_id, review_text, rating, review_date)
+            VALUES (?, ?, ?, ?)
+        """, (listing_id, review_text, product_data['rating'], datetime.now()))
+    
     conn.commit()
     conn.close()
     
@@ -388,51 +525,63 @@ def save_product_data(product_data):
 def index():
     return render_template('index.html')
 
-@app.route('/compare', methods=['POST'])
-def compare():
-    flipkart_url = request.form.get('flipkart_url')
+@app.route('/search', methods=['POST'])
+def search():
+    product_name = request.form.get('product_name')
     
-    if not flipkart_url or not (flipkart_url.startswith('https://www.flipkart.com') or 
-                                flipkart_url.startswith('http://www.flipkart.com')):
-        flash('Please enter a valid Flipkart URL')
+    if not product_name:
+        flash('Please enter a product name')
         return redirect(url_for('index'))
     
-    # Get Flipkart product details
-    flipkart_data = get_flipkart_product_details(flipkart_url)
-    
-    # Save Flipkart product data
-    save_product_data(flipkart_data)
-    
-    # Find equivalent product on Amazon
-    amazon_url = find_amazon_product(flipkart_data['name'])
-    
-    if not amazon_url:
-        flash('Could not find an equivalent product on Amazon')
-        amazon_data = {
-            'platform': 'Amazon',
-            'name': "Product not found",
-            'price': 0,
-            'rating': 0,
-            'reviews_count': 0,
-            'description': "Product not found on Amazon",
-            'image_url': "",
-            'category': "",
-            'url': ""
-        }
-    else:
-        # Get Amazon product details
-        amazon_data = get_amazon_product_details(amazon_url)
+    try:
+        # Find product on Flipkart
+        flipkart_url = find_flipkart_product(product_name)
         
-        # Save Amazon product data
-        save_product_data(amazon_data)
-    
-    # Compare products
-    comparison = compare_products(flipkart_data, amazon_data)
-    
-    return render_template('results.html', 
-                          flipkart=flipkart_data, 
-                          amazon=amazon_data, 
-                          comparison=comparison)
+        if not flipkart_url:
+            flash('Could not find product on Flipkart')
+            return redirect(url_for('index'))
+        
+        # Get Flipkart product details
+        flipkart_data = get_flipkart_product_details(flipkart_url)
+        
+        # Save Flipkart product data
+        save_product_data(flipkart_data)
+        
+        # Find equivalent product on Amazon
+        amazon_url = find_amazon_product(flipkart_data['name'])
+        
+        if not amazon_url:
+            flash('Could not find an equivalent product on Amazon')
+            amazon_data = {
+                'platform': 'Amazon',
+                'name': "Product not found",
+                'price': 0,
+                'rating': 0,
+                'reviews_count': 0,
+                'description': "Product not found on Amazon",
+                'image_url': "",
+                'category': "",
+                'url': "",
+                'reviews': []
+            }
+        else:
+            # Get Amazon product details
+            amazon_data = get_amazon_product_details(amazon_url)
+            
+            # Save Amazon product data
+            save_product_data(amazon_data)
+        
+        # Compare products
+        comparison = compare_products(flipkart_data, amazon_data)
+        
+        return render_template('results.html', 
+                            flipkart=flipkart_data, 
+                            amazon=amazon_data, 
+                            comparison=comparison)
+        
+    except Exception as e:
+        flash(f'Error searching for product: {str(e)}')
+        return redirect(url_for('index'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -642,7 +791,6 @@ def delete_tracking(tracking_id):
     conn.close()
     
     return redirect(url_for('price_history'))
-
 
 if __name__ == '__main__':
     init_db()

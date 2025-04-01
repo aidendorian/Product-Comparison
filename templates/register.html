@@ -1,39 +1,58 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Register - Product Comparison</title>
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-</head>
-<body>
-  <div class="container mt-5">
-    <h2>Register</h2>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="alert alert-warning">
-          {% for message in messages %}
-            <p>{{ message }}</p>
-          {% endfor %}
+{% extends "base.html" %}
+
+{% block title %}Register - Product Price Comparison{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h4 class="mb-0">Create an Account</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('register') }}">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email address</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirm_password" class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Register</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center">
+                Already have an account? <a href="{{ url_for('login') }}">Login here</a>
+            </div>
         </div>
-      {% endif %}
-    {% endwith %}
-    <form method="post" action="{{ url_for('register') }}">
-      <div class="form-group">
-        <label for="username">Username:</label>
-        <input type="text" name="username" id="username" class="form-control" required>
-      </div>
-      <div class="form-group">
-        <label for="email">Email:</label>
-        <input type="email" name="email" id="email" class="form-control" required>
-      </div>
-      <div class="form-group">
-        <label for="password">Password:</label>
-        <input type="password" name="password" id="password" class="form-control" required>
-      </div>
-      <button type="submit" class="btn btn-primary">Register</button>
-    </form>
-    <br>
-    <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
-  </div>
-</body>
-</html>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const password = document.getElementById('password');
+        const confirmPassword = document.getElementById('confirm_password');
+        
+        form.addEventListener('submit', function(event) {
+            if (password.value !== confirmPassword.value) {
+                event.preventDefault();
+                alert('Passwords do not match!');
+            }
+        });
+    });
+</script>
+{% endblock %}
