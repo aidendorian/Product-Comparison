@@ -67,11 +67,11 @@ def scrape_flipkart(product_name: str):
                     print("❌ Price not found")
                     price = "N/A"
 
-            print(f"✅ Price: {price}")
-            print(f"🔗 Product Link: {product_link}")
+            print(f"Price: {price}")
+            print(f"Product Link: {product_link}")
 
         except Exception as e:
-            print("❌ Error extracting product details:", e)
+            print("Error extracting product details:", e)
             print(driver.page_source)
             driver.quit()
             return None
@@ -101,21 +101,19 @@ def scrape_flipkart(product_name: str):
                 print(f"{i}. {review}")
 
         except Exception as e:
-            print("❌ Error extracting reviews:", e)
+            print("Error extracting reviews:", e)
             reviews = []
 
         print(f"\n🛒 Product Name: {product_name}")
-        print(f"⭐ Rating: {rating}")
+        print(f"Rating: {rating}")
 
     except Exception as e:
-        print("❌ Flipkart scrape failed:", e)
-        return None
+        print("Flipkart scrape failed:", e)
 
     finally:
         driver.quit()
 
 def scrape_amazon(product_name: str) -> dict:
-    """Scrape Amazon for product details including name, price, link, rating, and reviews."""
     driver = None
     try:
         driver = setup_driver()
@@ -123,32 +121,26 @@ def scrape_amazon(product_name: str) -> dict:
         logger.info(f"Scraping Amazon for {product_name}")
 
         driver.get(amazon_url)
-
-        # Wait for product list to load
         WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="listitem"][data-asin]'))
         )
-        time.sleep(random.uniform(1, 3))  # Reduce bot detection
+        time.sleep(random.uniform(1, 3))
 
         soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-        # Extract product details from search results
         first_product = soup.select_one('div[role="listitem"][data-asin]')
         if not first_product:
             logger.error("No product found on Amazon.")
             return {"error": "No product found"}
 
-        # Extract Product Name
         name_element = first_product.select_one("h2 a span")
         product_name = name_element.text.strip() if name_element else "N/A"
 
-        # Extract Price
         price_element = first_product.select_one(".a-price .a-offscreen")
         if price_element and "M.R.P." in price_element.text:
             price_element = first_product.select_one(".a-price span:not(.a-text-strike)")
         price = price_element.text.strip() if price_element else "N/A"
 
-        # Extract Product Link
         product_link = "N/A"
         product_link_element = first_product.select_one('a.a-link-normal.s-line-clamp-2.s-link-style.a-text-normal')
 
@@ -156,40 +148,30 @@ def scrape_amazon(product_name: str) -> dict:
             product_link = product_link_element['href']
             if not product_link.startswith('http'):
                 product_link = f"https://www.amazon.in{product_link}"
-            logger.info(f"🔗 Product Link: {product_link}")
+            logger.info(f"Product Link: {product_link}")
         else:
-            logger.error("❌ Product link not found.")
+            logger.error("Product link not found.")
 
         # Extract Rating
         rating_element = first_product.select_one(".a-icon-alt")
         rating = rating_element.text.strip() if rating_element else "N/A"
 
-        logger.info(f"✅ Found Product: {product_name} | Price: {price} | Rating: {rating}")
-        logger.info(f"🔗 Product Link: {product_link}")
+        logger.info(f"Found Product: {product_name} | Price: {price} | Rating: {rating}")
+        logger.info(f"Product Link: {product_link}")
 
-        # Ensure we have a valid product link before navigating
         if product_link == "N/A":
             logger.warning("No valid product link found. Skipping reviews extraction.")
-            return {
-                "name": product_name,
-                "price": price,
-                "product_link": "N/A",
-                "rating": rating,
-                "reviews": [],
-            }
-
-        # Navigate to product page for reviews
+            
         driver.get(product_link)
         time.sleep(random.uniform(2, 4))
 
-        # Wait for the reviews section to load (cr-widget-FocalReviews)
         try:
             WebDriverWait(driver, 10).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "span.cr-widget-FocalReviews"))
             )
-            logger.info("✅ Reviews section loaded successfully.")
+            logger.info("Reviews section loaded successfully.")
         except Exception as e:
-            logger.warning(f"⚠️ Error waiting for reviews section: {e}")
+            logger.warning(f"Error waiting for reviews section: {e}")
             return {
                 "name": product_name,
                 "price": price,
@@ -198,7 +180,6 @@ def scrape_amazon(product_name: str) -> dict:
                 "reviews": ["No reviews found"],
             }
 
-        # Extract up to 3 Reviews
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         review_elements = soup.select("div.review-text-content span")[:3]
         reviews = [review.text.strip() for review in review_elements]
@@ -214,10 +195,8 @@ def scrape_amazon(product_name: str) -> dict:
     finally:
         if driver:
             driver.quit()
-
-
+            
 def main():
-    """Main function to run the scraper."""
     product_name = input("Enter the product name: ").strip()
     if not product_name:
         logger.error("No product name provided")
