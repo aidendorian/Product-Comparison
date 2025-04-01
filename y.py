@@ -121,26 +121,30 @@ def scrape_amazon(product_name: str) -> dict:
         logger.info(f"Scraping Amazon for {product_name}")
 
         driver.get(amazon_url)
-        WebDriverWait(driver, 10).until(
+        WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, 'div[role="listitem"][data-asin]'))
         )
-        time.sleep(random.uniform(1, 3))
+        time.sleep(random.uniform(1, 3))  # Random sleep to avoid detection
 
         soup = BeautifulSoup(driver.page_source, 'html.parser')
 
-        first_product = soup.select_one('div[role="listitem"][data-asin]')
-        if not first_product:
+        # Ignore Sponsored Ads
+        products = soup.select('div[role="listitem"][data-asin]:not([data-component-type="sp-sponsored-result"])')
+        if not products:
             logger.error("No product found on Amazon.")
             return {"error": "No product found"}
 
-        name_element = first_product.select_one("h2 a span")
+        first_product = products[0]  # Get the first valid product
+
+        # ✅ Fix Product Name Extraction
+        name_element = first_product.select_one("a.a-link-normal.s-line-clamp-2.s-link-style.a-text-normal h2 span")
         product_name = name_element.text.strip() if name_element else "N/A"
 
+        # ✅ Fix Price Extraction
         price_element = first_product.select_one(".a-price .a-offscreen")
-        if price_element and "M.R.P." in price_element.text:
-            price_element = first_product.select_one(".a-price span:not(.a-text-strike)")
         price = price_element.text.strip() if price_element else "N/A"
 
+        # ✅ Fix Product Link Extraction
         product_link = "N/A"
         product_link_element = first_product.select_one('a.a-link-normal.s-line-clamp-2.s-link-style.a-text-normal')
 
@@ -152,21 +156,31 @@ def scrape_amazon(product_name: str) -> dict:
         else:
             logger.error("Product link not found.")
 
-        # Extract Rating
+        # ✅ Fix Rating Extraction
         rating_element = first_product.select_one(".a-icon-alt")
         rating = rating_element.text.strip() if rating_element else "N/A"
 
         logger.info(f"Found Product: {product_name} | Price: {price} | Rating: {rating}")
         logger.info(f"Product Link: {product_link}")
 
+        # 🚨 Handle Missing Product Link
         if product_link == "N/A":
             logger.warning("No valid product link found. Skipping reviews extraction.")
-            
-        driver.get(product_link)
-        time.sleep(random.uniform(2, 4))
+            return {
+                "name": product_name,
+                "price": price,
+                "product_link": product_link,
+                "rating": rating,
+                "reviews": ["No reviews found"],
+            }
 
+        # ✅ Navigate to Product Page
+        driver.get(product_link)
+        time.sleep(random.uniform(2, 4))  # Random delay
+
+        # ✅ Fix Review Extraction: Wait for Reviews Section
         try:
-            WebDriverWait(driver, 10).until(
+            WebDriverWait(driver, 15).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "span.cr-widget-FocalReviews"))
             )
             logger.info("Reviews section loaded successfully.")
@@ -183,10 +197,16 @@ def scrape_amazon(product_name: str) -> dict:
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         review_elements = soup.select("div.review-text-content span")[:3]
         reviews = [review.text.strip() for review in review_elements]
-
+        for i in range(3):
+            print(f"Review {i+1}: {reviews[i]}")
         logger.info(f"📌 Extracted {len(reviews)} Reviews")
-        for i in reviews:
-            print(i)
+        return {
+            "name": product_name,
+            "price": price,
+            "product_link": product_link,
+            "rating": rating,
+            "reviews": reviews if reviews else ["No reviews found"],
+        }
 
     except Exception as e:
         logger.error(f"❌ Amazon scrape failed: {e}")
@@ -203,7 +223,7 @@ def main():
         print("Please enter a valid product name.")
         return
 
-    #scrape_flipkart(product_name)
+    scrape_flipkart(product_name)
     scrape_amazon(product_name)
 
 if __name__ == "__main__":
