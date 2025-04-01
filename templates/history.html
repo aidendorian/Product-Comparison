@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Price History</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    .history-card {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-5">
+    <h2>Your Tracked Products & Price History</h2>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-warning">
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    
+    {% for product in products %}
+      <div class="history-card">
+        <h4>{{ product.product_name }} ({{ product.platform }})</h4>
+        <p>
+          <a href="{{ product.product_link }}" target="_blank" class="btn btn-info btn-sm">View Product</a>
+          <a href="{{ url_for('toggle_tracking', tracking_id=product.tracking_id) }}" class="btn btn-warning btn-sm">
+            {% if product.is_active %}Disable{% else %}Enable{% endif %} Tracking
+          </a>
+          <a href="{{ url_for('delete_tracking', tracking_id=product.tracking_id) }}" class="btn btn-danger btn-sm">Delete Tracking</a>
+        </p>
+        <p><strong>Notification Threshold:</strong> ₹{{ product.threshold }}</p>
+        <h5>Price History:</h5>
+        <ul>
+          {% for entry in product.history %}
+            <li>₹{{ entry.price_value }} on {{ entry.timestamp }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% else %}
+      <p>You have not tracked any products yet.</p>
+    {% endfor %}
+    
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">Back to Home</a>
+  </div>
+</body>
+</html>
