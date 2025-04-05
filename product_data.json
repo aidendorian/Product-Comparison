@@ -1,0 +1,26 @@
+[
+    {
+        "platform": "Flipkart",
+        "product_name": "Apple iPhone 16e (Black, 256 GB)",
+        "price": "₹69,900",
+        "rating": "4.6",
+        "product_link": "https://www.flipkart.com/apple-iphone-16e-black-256-gb/p/itm24bcdb43505bd?pid=MOBH9JVHVW84WHJB&lid=LSTMOBH9JVHVW84WHJBWAP270&marketplace=FLIPKART&q=iphone+16E&store=tyy%2F4io&srno=s_1_1&otracker=search&fm=organic&iid=81dd4554-4520-420d-ab1b-4d367ebf302a.MOBH9JVHVW84WHJB.SEARCH&ppt=None&ppn=None&ssid=m217lzh66o0000001743866301373&qH=5dad1750bdb47a16",
+        "reviews": [
+            "5.7 inch would be sweet spot , 6 inch got extra spaces in screen",
+            "I love it 🫶",
+            "I moved from android to IOS and i loved it."
+        ]
+    },
+    {
+        "platform": "Amazon",
+        "product_name": "iPhone 16e 128 GB: Built for Apple Intelligence, A18 Chip, Supersized Battery Life, 48MP Fusion. Camera, 15.40 cm (6.1″) Super Retina XDR Display; White",
+        "price": "₹56,790",
+        "rating": "4.1 out of 5 stars",
+        "product_link": "https://www.amazon.in/iPhone-16e-128-Intelligence-Supersized/dp/B0DXQHMRCP/ref=sr_1_3?dib=eyJ2IjoiMSJ9.JfgPQikktSSL4sEadVAlJ_rYrAQSaBr_YPACIQO5pIQBudDtsea1_zpO28b_rlRGhBHufSQCOl508j91STon5kDHsrGggYySkKRHhYik9TtRQDrva1N_XL7qwT3f3DtRxyEGGNAjHtoFBwskEchJYM4ilP9x8zCTgBmc16UFDsenj8HwlqXEYDhg-KbZFzS7KOXc9dMzq9QgFzLlX7VhtYnkcSVvBgZNUjlryHfHj1s.CKBn_iTQ9PBxEPOM4CR0xaThLgq3wCmu8FkwxayoaK0&dib_tag=se&keywords=iphone+16E&qid=1743866300&sr=8-3",
+        "reviews": [
+            "The iPhone 16e delivers exceptional performance with its powerful A18 chip and stunning 6.1-inch OLED display. The 48MP camera captures brilliant photos, and its impressive battery life ensures all-day usage.",
+            "Its been Close to 1 week and I am happy with the purchase. Got a good exchange offer with my old IPhone 8 and with the bank offer, the price came down to around 45K for 128GB model.Battery backup is very good.Light Weight and build quality is good.Camera is good to the levell what we are paying.Except wide angle camera, getting everything what IPhone 16 has to offer.",
+            "Battery draining very fast….not suggested those planning to buy 16 e….."
+        ]
+    }
+]
