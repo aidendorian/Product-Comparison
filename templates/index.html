@@ -7,8 +7,8 @@
     <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-8 text-center mb-4">
-                <h1>Compare Prices Across Platforms</h1>
-                <p class="lead">Find the best deals on Flipkart and Amazon in seconds</p>
+                <h1 class="display-4 fw-bold">Compare Prices Instantly</h1>
+                <p class="lead">Find the best deals across Flipkart and Amazon with just one search</p>
             </div>
             <div class="col-md-8">
                 <div class="search-form">
@@ -20,6 +20,12 @@
                                 <i class="bi bi-search"></i> Compare
                             </button>
                         </div>
+                        <div class="popular-searches mt-3 text-center">
+                            <small class="text-light">Popular searches: </small>
+                            <a href="{{ url_for('search', product_name='iPhone 15') }}" class="badge bg-dark text-light me-1">iPhone 15</a>
+                            <a href="{{ url_for('search', product_name='Samsung S24') }}" class="badge bg-dark text-light me-1">Samsung S24</a>
+                            <a href="{{ url_for('search', product_name='PS5') }}" class="badge bg-dark text-light">PS5</a>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -27,104 +33,369 @@
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-6 mb-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-cart3"></i> How It Works</h5>
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">
-                        <i class="bi bi-1-circle"></i> Enter the product name you want to compare
-                    </li>
-                    <li class="list-group-item">
-                        <i class="bi bi-2-circle"></i> We search Flipkart and Amazon for the best matches
-                    </li>
-                    <li class="list-group-item">
-                        <i class="bi bi-3-circle"></i> Compare prices, ratings, and reviews
-                    </li>
-                    <li class="list-group-item">
-                        <i class="bi bi-4-circle"></i> Track price changes for your favorite products
-                    </li>
-                </ul>
+<!-- Recent Deals Section -->
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3><i class="bi bi-lightning-charge-fill text-warning"></i> Hot Deals Today</h3>
+                <a href="#" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="row">
+                <div class="col-6 col-md-3 mb-3">
+                    <div class="card h-100 deal-card">
+                        <div class="card-body p-3 text-center">
+                            <span class="badge bg-danger position-absolute top-0 end-0 m-2">-40%</span>
+                            <img src="/api/placeholder/150/150" alt="Product" class="product-img mb-3">
+                            <h6 class="card-title text-truncate">Apple AirPods Pro</h6>
+                            <p class="price mb-0">₹18,999</p>
+                            <small class="text-muted"><del>₹26,900</del></small>
+                            <div class="mt-2">
+                                <span class="badge badge-flipkart">Flipkart</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 mb-3">
+                    <div class="card h-100 deal-card">
+                        <div class="card-body p-3 text-center">
+                            <span class="badge bg-danger position-absolute top-0 end-0 m-2">-25%</span>
+                            <img src="/api/placeholder/150/150" alt="Product" class="product-img mb-3">
+                            <h6 class="card-title text-truncate">OnePlus 12</h6>
+                            <p class="price mb-0">₹54,999</p>
+                            <small class="text-muted"><del>₹69,999</del></small>
+                            <div class="mt-2">
+                                <span class="badge badge-amazon">Amazon</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 mb-3">
+                    <div class="card h-100 deal-card">
+                        <div class="card-body p-3 text-center">
+                            <span class="badge bg-danger position-absolute top-0 end-0 m-2">-35%</span>
+                            <img src="/api/placeholder/150/150" alt="Product" class="product-img mb-3">
+                            <h6 class="card-title text-truncate">Samsung Galaxy Tab S9</h6>
+                            <p class="price mb-0">₹42,999</p>
+                            <small class="text-muted"><del>₹65,999</del></small>
+                            <div class="mt-2">
+                                <span class="badge badge-flipkart">Flipkart</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 mb-3">
+                    <div class="card h-100 deal-card">
+                        <div class="card-body p-3 text-center">
+                            <span class="badge bg-danger position-absolute top-0 end-0 m-2">-20%</span>
+                            <img src="/api/placeholder/150/150" alt="Product" class="product-img mb-3">
+                            <h6 class="card-title text-truncate">Sony WH-1000XM5</h6>
+                            <p class="price mb-0">₹26,990</p>
+                            <small class="text-muted"><del>₹34,990</del></small>
+                            <div class="mt-2">
+                                <span class="badge badge-amazon">Amazon</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 feature-card">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-cart3 text-primary"></i> How It Works</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item bg-transparent">
+                            <div class="d-flex align-items-center">
+                                <div class="feature-icon bg-primary text-white rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                                    <i class="bi bi-1-circle"></i>
+                                </div>
+                                <span>Enter the product name you want to compare</span>
+                            </div>
+                        </li>
+                        <li class="list-group-item bg-transparent">
+                            <div class="d-flex align-items-center">
+                                <div class="feature-icon bg-primary text-white rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                                    <i class="bi bi-2-circle"></i>
+                                </div>
+                                <span>We search Flipkart and Amazon for the best matches</span>
+                            </div>
+                        </li>
+                        <li class="list-group-item bg-transparent">
+                            <div class="d-flex align-items-center">
+                                <div class="feature-icon bg-primary text-white rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                                    <i class="bi bi-3-circle"></i>
+                                </div>
+                                <span>Compare prices, ratings, and reviews in real-time</span>
+                            </div>
+                        </li>
+                        <li class="list-group-item bg-transparent">
+                            <div class="d-flex align-items-center">
+                                <div class="feature-icon bg-primary text-white rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 36px; height: 36px;">
+                                    <i class="bi bi-4-circle"></i>
+                                </div>
+                                <span>Track price changes and get alert notifications</span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 feature-card">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-graph-up text-success"></i> Why Use PriceCompare?</h5>
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item bg-transparent">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-success me-3" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <strong>Save Money</strong>
+                                    <p class="mb-0 small text-muted">Find the best deals across platforms instantly</p>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="list-group-item bg-transparent">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-success me-3" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <strong>Detailed Comparisons</strong>
+                                    <p class="mb-0 small text-muted">View specifications, ratings, and reviews side-by-side</p>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="list-group-item bg-transparent">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-success me-3" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <strong>Price Alerts</strong>
+                                    <p class="mb-0 small text-muted">Get notified when prices drop on your watched items</p>
+                                </div>
+                            </div>
+                        </li>
+                        <li class="list-group-item bg-transparent">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-check-circle-fill text-success me-3" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <strong>Price History</strong>
+                                    <p class="mb-0 small text-muted">Track price fluctuations over time with visual charts</p>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if not session.get('user_id') %}
+    <div class="row my-4">
+        <div class="col-12">
+            <div class="card bg-gradient-primary">
+                <div class="card-body text-center p-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8 text-md-start">
+                            <h4 class="card-title mb-2">Create Your Free Account Today</h4>
+                            <p class="card-text mb-md-0">Track price changes, create price alerts, and save your favorite products for future comparison.</p>
+                        </div>
+                        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                            <a href="{{ url_for('register') }}" class="btn btn-light me-2">Register Now</a>
+                            <a href="{{ url_for('login') }}" class="btn btn-outline-light">Login</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mt-4 mb-5">
+        <div class="col-md-12 text-center">
+            <h3>Popular Categories</h3>
+            <div class="row mt-3">
+                {% set categories = [
+                    {'icon': 'phone', 'name': 'Smartphones', 'count': '1.2k+ items'},
+                    {'icon': 'laptop', 'name': 'Laptops', 'count': '950+ items'},
+                    {'icon': 'tv', 'name': 'TVs', 'count': '480+ items'},
+                    {'icon': 'headphones', 'name': 'Audio', 'count': '720+ items'},
+                    {'icon': 'camera', 'name': 'Cameras', 'count': '340+ items'},
+                    {'icon': 'watch', 'name': 'Wearables', 'count': '620+ items'},
+                    {'icon': 'printer', 'name': 'Accessories', 'count': '1.5k+ items'},
+                    {'icon': 'controller', 'name': 'Gaming', 'count': '410+ items'}
+                ] %}
+                
+                {% for category in categories %}
+                <div class="col-6 col-md-3 mb-3">
+                    <div class="card h-100 category-card">
+                        <div class="card-body text-center p-3">
+                            <div class="icon-wrapper mb-3 mx-auto d-flex align-items-center justify-content-center" 
+                                 style="width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, var(--primary-color), var(--accent-color)); opacity: 0.8;">
+                                <i class="bi bi-{{ category.icon }}" style="font-size: 2rem; color: white;"></i>
+                            </div>
+                            <h5 class="mt-2 mb-1">{{ category.name }}</h5>
+                            <p class="text-muted small mb-0">{{ category.count }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Testimonials Section -->
+    <div class="row mt-2 mb-5">
+        <div class="col-12 text-center mb-4">
+            <h3>What Our Users Say</h3>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex mb-3">
+                        <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                            <span class="text-white fw-bold">R</span>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">Rahul K.</h6>
+                            <div class="rating">
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="card-text">"Saved ₹8,000 on my new laptop purchase by comparing prices between Amazon and Flipkart. The price history feature helped me time my purchase perfectly!"</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex mb-3">
+                        <div class="bg-success rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                            <span class="text-white fw-bold">A</span>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">Ananya S.</h6>
+                            <div class="rating">
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-half"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="card-text">"The price drop alerts are amazing! Got notified instantly when the smartphone I wanted dropped in price. Super convenient and saved me time from checking multiple sites."</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex mb-3">
+                        <div class="bg-accent-color rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                            <span class="text-white fw-bold">V</span>
+                        </div>
+                        <div>
+                            <h6 class="mb-0">Vikram M.</h6>
+                            <div class="rating">
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                                <i class="bi bi-star-fill"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="card-text">"Using PriceCompare for the past 6 months has completely changed how I shop online. The detailed side-by-side comparison helps me make informed decisions every time."</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body py-4">
+                    <div class="row text-center">
+                        <div class="col-6 col-md-3 mb-3 mb-md-0">
+                            <h2 class="price mb-1">25K+</h2>
+                            <p class="text-muted mb-0">Active Users</p>
+                        </div>
+                        <div class="col-6 col-md-3 mb-3 mb-md-0">
+                            <h2 class="price mb-1">100K+</h2>
+                            <p class="text-muted mb-0">Products Compared</p>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <h2 class="price mb-1">₹15M+</h2>
+                            <p class="text-muted mb-0">Total Savings</p>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <h2 class="price mb-1">10K+</h2>
+                            <p class="text-muted mb-0">Price Alerts</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_css %}
+<style>
+    /* Additional styles for the improved index page */
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    }
     
-    <div class="col-md-6 mb-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-graph-up"></i> Advantages</h5>
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">
-                        <i class="bi bi-check-circle text-success"></i> Save money by finding the best deals
-                    </li>
-                    <li class="list-group-item">
-                        <i class="bi bi-check-circle text-success"></i> Compare detailed product information
-                    </li>
-                    <li class="list-group-item">
-                        <i class="bi bi-check-circle text-success"></i> Get notified when prices drop
-                    </li>
-                    <li class="list-group-item">
-                        <i class="bi bi-check-circle text-success"></i> Make smart shopping decisions
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
+    .icon-wrapper {
+        transition: all 0.3s ease;
+    }
+    
+    .category-card:hover .icon-wrapper {
+        transform: scale(1.1);
+    }
+    
+    .deal-card {
+        animation-delay: 0.1s;
+    }
+    
+    .feature-card {
+        animation-delay: 0.2s;
+    }
+    
+    .category-card {
+        animation-delay: 0.3s;
+    }
+    
+    .popular-searches .badge {
+        transition: all 0.3s ease;
+        background-color: rgba(255,255,255,0.1);
+    }
+    
+    .popular-searches .badge:hover {
+        background-color: rgba(255,255,255,0.2);
+        transform: translateY(-2px);
+    }
+</style>
+{% endblock %}
 
-{% if not session.get('user_id') %}
-<div class="row my-4">
-    <div class="col-12">
-        <div class="card bg-light">
-            <div class="card-body text-center">
-                <h5 class="card-title">Track Prices & Get Alerts</h5>
-                <p class="card-text">Create an account to track price changes and receive notifications when prices drop.</p>
-                <a href="{{ url_for('register') }}" class="btn btn-primary me-2">Register Now</a>
-                <a href="{{ url_for('login') }}" class="btn btn-outline-primary">Login</a>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-<div class="row mt-4">
-    <div class="col-md-12 text-center">
-        <h3>Popular Categories</h3>
-        <div class="row mt-3">
-            <div class="col-6 col-md-3 mb-3">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-phone" style="font-size: 2rem;"></i>
-                        <h5 class="mt-2">Smartphones</h5>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3 mb-3">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-laptop" style="font-size: 2rem;"></i>
-                        <h5 class="mt-2">Laptops</h5>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3 mb-3">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-tv" style="font-size: 2rem;"></i>
-                        <h5 class="mt-2">TVs</h5>
-                    </div>
-                </div>
-            </div>
-            <div class="col-6 col-md-3 mb-3">
-                <div class="card h-100">
-                    <div class="card-body text-center">
-                        <i class="bi bi-headphones" style="font-size: 2rem;"></i>
-                        <h5 class="mt-2">Audio</h5>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+{% block scripts %}
+<script>
+    // Animation for staggered card appearance
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            card.style.animationDelay = `${index * 0.1}s`;
+        });
+    });
+</script>
+{% endblock %}
 {% endblock %}

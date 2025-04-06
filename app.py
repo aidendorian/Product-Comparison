@@ -135,23 +135,22 @@ def find_flipkart_product(product_name):
         # Handle login popup
         try:
             close_button = WebDriverWait(driver, 5).until(
-                EC.element_to_be_clickable((By.XPATH, '//button[contains(text(),"✕")] | //button[contains(text(),"x")] | //span[contains(text(),"✕")]')) # More robust popup close
+                EC.element_to_be_clickable((By.XPATH, '//button[contains(text(),"✕")] | //button[contains(text(),"x")] | //span[contains(text(),"✕")]'))
             )
             close_button.click()
             print("Closed Flipkart login popup.")
         except:
             print("Flipkart login popup not found or could not be closed.")
-            pass # Continue if popup not found
+            pass
 
-        # ### UPDATE ###: Using selectors from the working standalone script
-        link_selector = 'a.CGtC98, a.VJA3rP, a._1fQZEK, a.s1Q9rs' # Combined old and potentially new selectors for robustness
+        # Using a more comprehensive selector from the second file
+        link_selector = 'a.CGtC98, a.VJA3rP, a._1fQZEK, a.s1Q9rs'
         print(f"Waiting for Flipkart link element with selector: {link_selector}")
-        WebDriverWait(driver, 15).until( # Increased wait time slightly
+        WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, link_selector))
         )
         print("Flipkart link element found.")
 
-        # ### UPDATE ###: Using selectors from the working standalone script
         first_product = driver.find_element(By.CSS_SELECTOR, link_selector)
         flipkart_url = first_product.get_attribute("href")
         print(f"Found Flipkart URL: {flipkart_url}")
@@ -159,16 +158,12 @@ def find_flipkart_product(product_name):
 
     except Exception as e:
         print(f"Error finding Flipkart product link: {e}")
-        # Optional: Save page source for debugging
-        # with open("flipkart_find_error.html", "w", encoding="utf-8") as f:
-        #    f.write(driver.page_source)
         return None
     finally:
         if driver:
             driver.quit()
 
-# --- Get Flipkart Product Details (Updated selectors) ---
-# --- Get Flipkart Product Details (UPDATED Price Extraction) ---
+# --- Get Flipkart Product Details (Updated selectors based on second file) ---
 def get_flipkart_product_details(url):
     driver = setup_driver()
     product_name = "Product name not found"
@@ -185,14 +180,15 @@ def get_flipkart_product_details(url):
         driver.get(url)
         try:
             close_button = WebDriverWait(driver, 3).until(
-                 EC.element_to_be_clickable((By.XPATH, '//button[contains(text(),"✕")] | //button[contains(text(),"x")] | //span[contains(text(),"✕")]'))
+                EC.element_to_be_clickable((By.XPATH, '//button[contains(text(),"✕")] | //button[contains(text(),"x")] | //span[contains(text(),"✕")]'))
             )
             close_button.click()
             print("Closed Flipkart popup on product page.")
         except:
             pass
 
-        name_selector = 'span.VU-ZEz' # From standalone
+        # Using the more specific name selector from the second file
+        name_selector = 'span.VU-ZEz'
         print(f"Waiting for Flipkart name element: {name_selector}")
         WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, name_selector))
@@ -204,16 +200,18 @@ def get_flipkart_product_details(url):
             product_name = driver.find_element(By.CSS_SELECTOR, name_selector).text.strip()
         except Exception as e_name:
             print(f"Could not extract Flipkart product name: {e_name}")
-            try: # Fallback
+            try:
                 product_name = driver.find_element(By.CSS_SELECTOR, 'span.B_NuCI').text.strip()
             except:
-                 product_name = "Product name not found"
+                product_name = "Product name not found"
 
-        # --- ### UPDATED Price Extraction Logic ### ---
+        # --- Price Extraction Logic --- 
         price_found = False
         price_selectors_to_try = [
-            'div._30jeq3._16Jk6d', # Primary current price
-            'div._30jeq3'        # Fallback current price
+            'div.Nx9bqj._4b5DiR',  # Added from second file
+            'div.Nx9bqj',          # Added from second file
+            'div._30jeq3._16Jk6d', # From original file
+            'div._30jeq3'          # From original file
         ]
         for selector in price_selectors_to_try:
             try:
@@ -224,17 +222,15 @@ def get_flipkart_product_details(url):
                     price = cleaned_price
                     price_found = True
                     print(f"Found Flipkart price using selector '{selector}': {price}")
-                    break # Stop trying once found
+                    break
             except Exception as e_price_loop:
-                # print(f"Selector '{selector}' failed: {e_price_loop}") # Optional debug
-                continue # Try next selector
+                continue
         if not price_found:
             print("Could not extract Flipkart price using any known selector.")
             price = "0"
-        # --- End of UPDATED Price Extraction ---
 
         # Extract rating
-        rating_selector = 'div.ipqd2A'
+        rating_selector = 'div.ipqd2A'  # From both files
         try:
             rating_element = driver.find_element(By.CSS_SELECTOR, rating_selector)
             rating_text = rating_element.text.strip()
@@ -242,26 +238,42 @@ def get_flipkart_product_details(url):
             rating = rating_match.group(1) if rating_match else "0"
         except Exception as e_rating:
             print(f"Could not extract Flipkart rating using {rating_selector}: {e_rating}")
-            try: # Fallback
-                 rating_element = driver.find_element(By.CSS_SELECTOR, 'div._3LWZlK')
-                 rating = rating_element.text.strip()
+            try:
+                rating_element = driver.find_element(By.CSS_SELECTOR, 'div._3LWZlK')
+                rating = rating_element.text.strip()
             except:
-                 rating = "0"
+                rating = "0"
 
-        # Extract reviews count
-        reviews_count_selector = 'span._2_R_DZ'
-        try:
-            reviews_count_element = driver.find_element(By.CSS_SELECTOR, reviews_count_selector)
-            reviews_count_text = reviews_count_element.text.strip()
-            reviews_match = re.search(r'(\d+(?:,\d+)*)\s+Reviews', reviews_count_text, re.IGNORECASE)
-            if reviews_match:
-                reviews_count = reviews_match.group(1).replace(',', '')
-            else:
+        # Extract reviews count - Updated selectors
+        reviews_count_selectors = [
+            'span.Wphh3N',  # New selector from the example
+            'span._2_R_DZ'  # Original selector
+        ]
+        
+        reviews_count = "0"
+        for selector in reviews_count_selectors:
+            try:
+                reviews_count_element = driver.find_element(By.CSS_SELECTOR, selector)
+                reviews_count_text = reviews_count_element.text.strip()
+                
+                # Try to extract both ratings and reviews
                 ratings_match = re.search(r'(\d+(?:,\d+)*)\s+Ratings', reviews_count_text, re.IGNORECASE)
-                reviews_count = ratings_match.group(1).replace(',', '') if ratings_match else "0"
-        except Exception as e_rev_count:
-            print(f"Could not extract Flipkart reviews count using {reviews_count_selector}: {e_rev_count}")
-            reviews_count = "0"
+                reviews_match = re.search(r'(\d+(?:,\d+)*)\s+Reviews', reviews_count_text, re.IGNORECASE)
+                
+                if reviews_match:
+                    reviews_count = reviews_match.group(1).replace(',', '')
+                    print(f"Found {reviews_count} reviews")
+                    break
+                elif ratings_match:
+                    # If we only find ratings, keep looking for reviews in other elements
+                    continue
+                
+            except Exception as e_rev_count:
+                print(f"Could not extract Flipkart reviews count using {selector}: {e_rev_count}")
+                continue
+                
+        if reviews_count == "0":
+            print("Could not extract Flipkart reviews count using any known selector.")
 
         # Extract description
         description_selector = 'div._1mXcCf.RmoJUa'
@@ -269,29 +281,37 @@ def get_flipkart_product_details(url):
             description_element = driver.find_element(By.CSS_SELECTOR, description_selector)
             description = description_element.text.strip()
             if not description:
-                 description_element = driver.find_element(By.CSS_SELECTOR, 'div._2418kt')
-                 description = description_element.text.strip()
+                description_element = driver.find_element(By.CSS_SELECTOR, 'div._2418kt')
+                description = description_element.text.strip()
         except Exception as e_desc:
             print(f"Could not extract Flipkart description: {e_desc}")
             description = "No description available"
 
-        # Extract image
-        image_selector = 'img._396cs4._2amPTt._3qGmMb'
-        try:
-            image_element = driver.find_element(By.CSS_SELECTOR, image_selector)
-            image_url = image_element.get_attribute('src')
-        except:
-             try: # Fallback
-                 image_element = driver.find_element(By.CSS_SELECTOR, 'img._396cs4')
-                 image_url = image_element.get_attribute('src')
-             except Exception as e_img:
-                 print(f"Could not extract Flipkart image: {e_img}")
-                 image_url = ""
+        # Extract image - Updated selectors
+        image_selectors_to_try = [
+            'img.DByuf4.IZexXJ.jLEJ7H',  # New selector from the example
+            'img._396cs4._2amPTt._3qGmMb',  # Original selector
+            'img._396cs4'  # Original fallback
+        ]
+        
+        image_url = ""
+        for selector in image_selectors_to_try:
+            try:
+                image_element = driver.find_element(By.CSS_SELECTOR, selector)
+                image_url = image_element.get_attribute('src')
+                if image_url:
+                    print(f"Found Flipkart image using selector '{selector}': {image_url}")
+                    break
+            except Exception as e_img:
+                continue
+                
+        if not image_url:
+            print("Could not extract Flipkart image using any known selector.")
 
         # Extract category
         category = "Unknown"
 
-        # Get reviews
+        # Get reviews - Using selector from second file
         reviews_selector = "div.ZmyHeo"
         try:
             driver.execute_script("window.scrollBy(0, 500);")
@@ -322,12 +342,10 @@ def get_flipkart_product_details(url):
             'category': "", 'url': url, 'reviews': []
         }
     finally:
-         if driver:
+        if driver:
             driver.quit()
 
-
-# --- Find product on Amazon (No selector changes from previous Flask version) ---
-# Strategy remains: find link for the first search result.
+# --- Find product on Amazon (Updated based on second file approach) ---
 def find_amazon_product(product_name):
     driver = setup_driver()
     try:
@@ -335,49 +353,58 @@ def find_amazon_product(product_name):
         print(f"Navigating to Amazon Search URL: {search_url}")
         driver.get(search_url)
 
-        # ### VERIFY ###: This waits for the search results container. Selector might need update.
+        # Wait for search results
         wait_selector = 'div[data-component-type="s-search-result"]'
         print(f"Waiting for Amazon search results: {wait_selector}")
-        WebDriverWait(driver, 15).until( # Increased wait time slightly
+        WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, wait_selector))
         )
         print("Amazon search results found.")
-        time.sleep(random.uniform(1, 2)) # Allow dynamic elements to potentially load
+        time.sleep(random.uniform(1, 2))
 
-        # ### VERIFY ###: Selects the first result container. Might need update.
-        product_container_selector = 'div[data-component-type="s-search-result"]'
-        print(f"Finding first Amazon result container: {product_container_selector}")
-        # Find all results and take the first one that has a valid link inside
-        results = driver.find_elements(By.CSS_SELECTOR, product_container_selector)
+        # Get product URL using BeautifulSoup like in the second file
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
         product_url = None
-        for product in results:
-             # ### VERIFY ###: Selector for link within the container. Might need update.
-             link_selector = 'a.a-link-normal.s-no-outline'
-             try:
-                 link_element = product.find_element(By.CSS_SELECTOR, link_selector)
-                 href = link_element.get_attribute('href')
-                 # Basic validation of the link
-                 if href and 'slredirect' not in href and href.startswith('https://www.amazon.in'):
-                     product_url = href
-                     print(f"Found valid Amazon product link: {product_url}")
-                     break # Found a good link, stop searching
-             except:
-                 continue # Link not found in this container, try next
+        
+        # Try different selectors
+        product_containers = soup.select('div[data-component-type="s-search-result"]')
+        if product_containers:
+            for product in product_containers:
+                link_element = product.select_one('a.a-link-normal.s-no-outline')
+                if link_element and link_element.get('href'):
+                    href = link_element.get('href')
+                    if href and 'slredirect' not in href:
+                        product_url = href
+                        if not product_url.startswith('https://'):
+                            product_url = f'https://www.amazon.in{product_url}'
+                        print(f"Found valid Amazon product link: {product_url}")
+                        break
+        
+        # If BeautifulSoup approach didn't work, try Selenium directly
+        if not product_url:
+            results = driver.find_elements(By.CSS_SELECTOR, wait_selector)
+            for product in results:
+                link_selector = 'a.a-link-normal.s-no-outline'
+                try:
+                    link_element = product.find_element(By.CSS_SELECTOR, link_selector)
+                    href = link_element.get_attribute('href')
+                    if href and 'slredirect' not in href and href.startswith('https://www.amazon.in'):
+                        product_url = href
+                        print(f"Found valid Amazon product link: {product_url}")
+                        break
+                except:
+                    continue
 
-        return product_url # Returns None if no valid link found
+        return product_url
 
     except Exception as e:
         print(f"Error finding Amazon product link: {e}")
-        # Optional: Save page source for debugging
-        # with open("amazon_find_error.html", "w", encoding="utf-8") as f:
-        #    f.write(driver.page_source)
         return None
     finally:
-         if driver:
+        if driver:
             driver.quit()
 
-
-# --- Get Amazon Product Details (Integrated BeautifulSoup for reviews) ---
+# --- Get Amazon Product Details (Updated based on the second file) ---
 def get_amazon_product_details(url):
     driver = setup_driver()
     product_name = "Product name not found"
@@ -394,8 +421,8 @@ def get_amazon_product_details(url):
         driver.get(url)
         time.sleep(random.uniform(2, 4))
 
-        # Extract product name ### VERIFY SELECTOR ###
-        name_selector = 'productTitle' # By ID
+        # Extract product name
+        name_selector = 'productTitle'  # By ID
         try:
             print(f"Waiting for Amazon name element: ID={name_selector}")
             product_name = WebDriverWait(driver, 10).until(
@@ -406,48 +433,40 @@ def get_amazon_product_details(url):
             print(f"Could not extract Amazon product name using ID {name_selector}: {e_name}")
             product_name = "Product name not found"
 
-        # --- ### UPDATED Price Extraction Logic ### ---
+        # Price Extraction Logic - combining approaches from both files
         price_found = False
-        # List of selectors to try in order of preference/commonality
         price_selectors_to_try = [
-            'span.a-price-whole',                             # Primary selector for main digits
-            '.a-price .a-offscreen',                          # Often has full price (₹1,299.00)
-            '.priceToPay .a-offscreen',                       # Common selector for deal prices
-            'span[data-a-color="price"] span.a-offscreen',    # Another structure sometimes seen
-            '#priceblock_ourprice',                           # Older ID, sometimes still used
-            '#priceblock_dealprice',                          # Older ID for deals
-            '#price'                                          # Very generic fallback ID
+            '.a-price .a-offscreen',                          # From second file
+            'span.a-price-whole',                             # From first file
+            '.priceToPay .a-offscreen',                       # From first file
+            'span[data-a-color="price"] span.a-offscreen',    # From first file
+            '#priceblock_ourprice',                           # From first file
+            '#priceblock_dealprice',                          # From first file
+            '#price'                                          # From first file
         ]
         for selector in price_selectors_to_try:
             try:
-                # Use find_elements to avoid immediate error if not found
                 price_elements = driver.find_elements(By.CSS_SELECTOR, selector)
                 if price_elements:
-                    # Iterate through found elements, take the first valid price text
                     for price_element in price_elements:
-                        # Try getting text content, handle potential hidden elements
                         price_text = price_element.get_attribute('textContent') or price_element.text
                         if price_text:
-                             price_text = price_text.strip()
-                             cleaned_price = re.sub(r'[^\d.]', '', price_text)
-                             # Basic validation: ensure it's digits/dot and potentially > 0
-                             if cleaned_price and cleaned_price.replace('.', '', 1).isdigit() and float(cleaned_price) > 0:
-                                 price = cleaned_price
-                                 price_found = True
-                                 print(f"Found Amazon price using selector '{selector}': {price}")
-                                 break # Stop inner loop once found
+                            price_text = price_text.strip()
+                            cleaned_price = re.sub(r'[^\d.]', '', price_text)
+                            if cleaned_price and cleaned_price.replace('.', '', 1).isdigit() and float(cleaned_price) > 0:
+                                price = cleaned_price
+                                price_found = True
+                                print(f"Found Amazon price using selector '{selector}': {price}")
+                                break
                     if price_found:
-                        break # Stop outer loop once found
+                        break
             except Exception as e_price_loop:
-                # print(f"Error checking Amazon selector '{selector}': {e_price_loop}") # Optional debug
-                continue # Try next selector
+                continue
         if not price_found:
             print("Could not extract Amazon price using any known selector.")
             price = "0"
-        # --- End of UPDATED Price Extraction ---
 
-
-        # Extract rating ### VERIFY SELECTOR ###
+        # Extract rating - using approach from second file
         rating_selector = 'span.a-icon-alt'
         try:
             WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, rating_selector)))
@@ -455,16 +474,16 @@ def get_amazon_product_details(url):
             if rating_elements:
                 rating_text = rating_elements[0].get_attribute('textContent')
                 if rating_text:
-                     rating_match = re.search(r'(\d+(?:\.\d+)?)\s+out\s+of\s+5', rating_text)
-                     rating = rating_match.group(1) if rating_match else "0"
-            else: rating = "0"
+                    rating_match = re.search(r'(\d+(?:\.\d+)?)\s+out\s+of\s+5', rating_text)
+                    rating = rating_match.group(1) if rating_match else "0"
+            else:
+                rating = "0"
         except Exception as e_rating:
             print(f"Could not extract Amazon rating using {rating_selector}: {e_rating}")
             rating = "0"
 
-
-        # Extract reviews count ### VERIFY SELECTOR ###
-        reviews_count_selector = 'acrCustomerReviewText' # By ID
+        # Extract reviews count
+        reviews_count_selector = 'acrCustomerReviewText'  # By ID
         try:
             reviews_count_element = driver.find_element(By.ID, reviews_count_selector)
             reviews_count_text = reviews_count_element.text.strip()
@@ -474,18 +493,18 @@ def get_amazon_product_details(url):
             print(f"Could not extract Amazon reviews count using ID {reviews_count_selector}: {e_rev_count}")
             reviews_count = "0"
 
-        # Extract description ### VERIFY SELECTORS ###
-        description_selector_1 = 'productDescription' # By ID
-        description_selector_2 = '#feature-bullets' # CSS Selector
+        # Extract description
+        description_selector_1 = 'productDescription'  # By ID
+        description_selector_2 = '#feature-bullets'  # CSS Selector
         try:
             description_element = driver.find_element(By.ID, description_selector_1)
             description = description_element.text.strip()
-            if not description or len(description) < 10: # If short/empty try bullets
-                 raise Exception("Description too short, trying bullets") # Force fallback
+            if not description or len(description) < 10:
+                raise Exception("Description too short, trying bullets")
         except:
             try:
                 description_element = driver.find_element(By.CSS_SELECTOR, description_selector_2)
-                items = description_element.find_elements(By.CSS_SELECTOR, 'li span.a-list-item') # More specific list items
+                items = description_element.find_elements(By.CSS_SELECTOR, 'li span.a-list-item')
                 description = "\n".join([item.text.strip() for item in items if item.text.strip()])
                 if not description:
                     description = description_element.text.strip()
@@ -493,49 +512,48 @@ def get_amazon_product_details(url):
                 print(f"Could not extract Amazon description using IDs/selectors: {e_desc}")
                 description = "No description available"
 
-
-        # Extract image ### VERIFY SELECTORS ###
-        image_selector = 'landingImage' # By ID
+        # Extract image
+        image_selector = 'landingImage'  # By ID
         try:
             image_element = driver.find_element(By.ID, image_selector)
             image_url = image_element.get_attribute('src') or image_element.get_attribute('data-old-hires')
             if not image_url or 'grey-pixel' in image_url or 'spinner' in image_url:
-                 image_element = driver.find_element(By.ID, 'imgBlkFront')
-                 image_url = image_element.get_attribute('src')
+                image_element = driver.find_element(By.ID, 'imgBlkFront')
+                image_url = image_element.get_attribute('src')
         except Exception as e_img:
             print(f"Could not extract Amazon image using ID {image_selector}: {e_img}")
             image_url = ""
 
-        # Extract category ### VERIFY SELECTORS ###
+        # Extract category
         category_selector = '#wayfinding-breadcrumbs_feature_div ul li:last-of-type a'
         try:
             category_element = driver.find_element(By.CSS_SELECTOR, category_selector)
             category = category_element.text.strip()
         except Exception as e_cat:
-            try: # Fallback
+            try:
                 category_selector_alt = 'a.a-link-normal.a-color-tertiary'
                 category_elements = driver.find_elements(By.CSS_SELECTOR, category_selector_alt)
                 if category_elements:
-                     # Find first category link that isn't just "Electronics", "Clothing" etc. if possible
-                     valid_cats = [el.text.strip() for el in category_elements if len(el.text.strip()) > 3] # Basic filter
-                     category = valid_cats[0] if valid_cats else "Unknown"
-                else: category = "Unknown"
+                    valid_cats = [el.text.strip() for el in category_elements if len(el.text.strip()) > 3]
+                    category = valid_cats[0] if valid_cats else "Unknown"
+                else:
+                    category = "Unknown"
             except:
-                 print(f"Could not extract Amazon category using selectors: {e_cat}")
-                 category = "Unknown"
+                print(f"Could not extract Amazon category using selectors: {e_cat}")
+                category = "Unknown"
 
-        # Get reviews (Using BeautifulSoup)
+        # Get reviews using BeautifulSoup like in the second file
         reviews = []
-        reviews_selector_bs = "div[data-hook='review-collapsed'] span"
         try:
             WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "reviewsMedley")))
-            time.sleep(random.uniform(1,2))
+            time.sleep(random.uniform(1, 2))
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-            review_elements = soup.select(reviews_selector_bs)[:3]
+            # Using selector from the second file
+            review_elements = soup.select("div[data-hook='review-collapsed'] span")[:3]
             reviews = [review.text.strip() for review in review_elements if review and review.text.strip()]
             print(f"Found {len(reviews)} reviews using BeautifulSoup.")
         except Exception as review_e:
-            print(f"Could not scrape Amazon reviews using BS selector '{reviews_selector_bs}': {review_e}")
+            print(f"Could not scrape Amazon reviews: {review_e}")
             pass
 
         print(f"Finished scraping Amazon: Name='{product_name}', Price='{price}', Rating='{rating}'")
@@ -557,7 +575,7 @@ def get_amazon_product_details(url):
             'category': "", 'url': url, 'reviews': []
         }
     finally:
-         if driver:
+        if driver:
             driver.quit()
 
 # --- Comparison Logic (No changes needed) ---
@@ -612,7 +630,7 @@ def compare_products(flipkart_data, amazon_data):
 
     if score_flipkart > score_amazon: comparison['overall_winner'] = 'Flipkart'
     elif score_amazon > score_flipkart: comparison['overall_winner'] = 'Amazon'
-    else: comparison['overall_winner'] = 'Similar' # Changed 'Equal' to 'Similar'
+    else: comparison['overall_winner'] = 'Similar'
 
     return comparison
 
