@@ -63,8 +63,8 @@
                     <h6>Reviews</h6>
                     {% if flipkart.reviews %}
                         {% for review in flipkart.reviews[:2] %}
-                            <div class="mb-2 p-2 bg-light rounded">
-                                <p class="mb-0">{{ review|truncate(100) }}</p>
+                            <div class="mb-2 p-2 bg-dark rounded border border-secondary">
+                                <p class="mb-0 text-light">{{ review|truncate(100) }}</p>
                             </div>
                         {% endfor %}
                     {% else %}
@@ -151,8 +151,8 @@
                     <h6>Reviews</h6>
                     {% if amazon.reviews %}
                         {% for review in amazon.reviews[:2] %}
-                            <div class="mb-2 p-2 bg-light rounded">
-                                <p class="mb-0">{{ review|truncate(100) }}</p>
+                            <div class="mb-2 p-2 bg-dark rounded border border-secondary">
+                                <p class="mb-0 text-light">{{ review|truncate(100) }}</p>
                             </div>
                         {% endfor %}
                     {% else %}
