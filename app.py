@@ -14,6 +14,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import random
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+from flask_caching import Cache
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24) # Remember to use a static key for production
@@ -107,6 +110,15 @@ def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
+
+cache = Cache(config={'CACHE_TYPE': 'SimpleCache', 'CACHE_DEFAULT_TIMEOUT': 3600})
+cache.init_app(app)
+
+def save_to_cache(key, value, timeout):
+    cache.set(key, value, timeout=timeout)
+
+def get_from_cache(key):
+    return cache.get(key)
 
 # --- Setup WebDriver for scraping (No changes needed here) ---
 def setup_driver():
@@ -763,69 +775,99 @@ def search():
 
     flipkart_data = None
     amazon_data = None
-    flipkart_listing_id = None # To pass to template if needed
-    amazon_listing_id = None   # To pass to template if needed
-
+    flipkart_listing_id = None
+    amazon_listing_id = None
+    comparison = {}
+    
+    # Create cache key for this search
+    cache_key = f"search_{product_name.lower().strip()}"
+    
+    # Check if results are in cache
+    cached_result = get_from_cache(cache_key)
+    if cached_result:
+        print("Returning cached search results")
+        return render_template('results.html', **cached_result)
+    
+    # If not in cache, perform parallel scraping
     try:
-        # --- Flipkart ---
-        print("\n--- Starting Flipkart Search ---")
-        flipkart_url = find_flipkart_product(product_name)
-        if flipkart_url:
-            flipkart_data = get_flipkart_product_details(flipkart_url)
-            if flipkart_data and flipkart_data['name'] != "Error fetching product":
-                 _, flipkart_listing_id = save_product_data(flipkart_data)
-            else:
-                 flash('Failed to fetch details from Flipkart.')
-                 flipkart_data = {'name': "Error fetching product"} # Ensure dict exists
-        else:
-            flash('Could not find product link on Flipkart.')
-            flipkart_data = {'name': "Product not found"} # Ensure dict exists
-
-
-        # --- Amazon ---
-        print("\n--- Starting Amazon Search ---")
-        # Use the original search term or the potentially cleaner Flipkart name?
-        # Using Flipkart name might find a closer match, but could fail if FK name is bad.
-        search_term_for_amazon = flipkart_data.get('name') if flipkart_data and flipkart_data.get('name') not in ["Error fetching product", "Product not found"] else product_name
-        print(f"Searching Amazon for: {search_term_for_amazon}")
-
-        amazon_url = find_amazon_product(search_term_for_amazon)
-        if amazon_url:
-            amazon_data = get_amazon_product_details(amazon_url)
-            if amazon_data and amazon_data['name'] != "Error fetching product":
-                _, amazon_listing_id = save_product_data(amazon_data)
-            else:
-                 flash('Failed to fetch details from Amazon.')
-                 amazon_data = {'name': "Error fetching product"} # Ensure dict exists
-        else:
-            flash('Could not find an equivalent product link on Amazon.')
-            amazon_data = {'name': "Product not found"} # Ensure dict exists
-
-        # --- Comparison ---
-        print("\n--- Comparing Products ---")
+        start_time = time.time()
+        print("\n--- Starting Parallel Product Search ---")
+        
+        # Create a thread pool
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit both scraping tasks to run in parallel
+            flipkart_future = executor.submit(get_flipkart_data, product_name)
+            amazon_future = executor.submit(get_amazon_data, product_name)
+            
+            # Retrieve results as they complete
+            for future in as_completed([flipkart_future, amazon_future]):
+                result = future.result()
+                if result and 'platform' in result:
+                    if result['platform'] == 'Flipkart':
+                        flipkart_data = result
+                        if flipkart_data and flipkart_data['name'] != "Error fetching product":
+                            _, flipkart_listing_id = save_product_data(flipkart_data)
+                    elif result['platform'] == 'Amazon':
+                        amazon_data = result
+                        if amazon_data and amazon_data['name'] != "Error fetching product":
+                            _, amazon_listing_id = save_product_data(amazon_data)
+        
         # Ensure both data dictionaries exist before comparing
-        if flipkart_data and amazon_data:
+        if flipkart_data and amazon_data and flipkart_data.get('name') != "Error fetching product" and amazon_data.get('name') != "Error fetching product":
             comparison = compare_products(flipkart_data, amazon_data)
         else:
-            comparison = {} # Empty comparison if data is missing
-            flash("Could not compare products due to missing data.")
-
-        print("--- Search Complete ---")
-        return render_template('results.html',
-                               flipkart=flipkart_data,
-                               amazon=amazon_data,
-                               comparison=comparison,
-                               flipkart_listing_id=flipkart_listing_id, # Pass IDs for tracking
-                               amazon_listing_id=amazon_listing_id)
+            # Set default values if any data is missing
+            if not flipkart_data:
+                flipkart_data = {'name': "Product not found", 'platform': 'Flipkart'}
+                flash('Could not find product on Flipkart.')
+            if not amazon_data:
+                amazon_data = {'name': "Product not found", 'platform': 'Amazon'}
+                flash('Could not find product on Amazon.')
+            if comparison == {}:
+                flash("Could not compare products due to missing data.")
+        
+        # Package the result data
+        result_data = {
+            'flipkart': flipkart_data,
+            'amazon': amazon_data,
+            'comparison': comparison,
+            'flipkart_listing_id': flipkart_listing_id,
+            'amazon_listing_id': amazon_listing_id
+        }
+        
+        # Cache the results
+        save_to_cache(cache_key, result_data, 3600) # Cache for 1 hour
+        
+        print(f"--- Search Complete in {time.time() - start_time:.2f} seconds ---")
+        return render_template('results.html', **result_data)
 
     except Exception as e:
         flash(f'An unexpected error occurred during search: {str(e)}')
-        print(f"Error in /search route: {e}") # Log detailed error
-        # Optionally add more detailed logging here
-        # import traceback
-        # print(traceback.format_exc())
+        print(f"Error in /search route: {e}")
         return redirect(url_for('index'))
 
+
+def get_flipkart_data(product_name):
+    try:
+        print("\n--- Starting Flipkart Search ---")
+        flipkart_url = find_flipkart_product(product_name)
+        if flipkart_url:
+            return get_flipkart_product_details(flipkart_url)
+        return {'name': "Product not found", 'platform': 'Flipkart'}
+    except Exception as e:
+        print(f"Error in Flipkart search: {e}")
+        return {'name': "Error fetching product", 'platform': 'Flipkart'}
+
+def get_amazon_data(product_name):
+    try:
+        print("\n--- Starting Amazon Search ---")
+        amazon_url = find_amazon_product(product_name)
+        if amazon_url:
+            return get_amazon_product_details(amazon_url)
+        return {'name': "Product not found", 'platform': 'Amazon'}
+    except Exception as e:
+        print(f"Error in Amazon search: {e}")
+        return {'name': "Error fetching product", 'platform': 'Amazon'}
 
 # --- User Auth & Tracking Routes (No changes needed here) ---
 @app.route('/register', methods=['GET', 'POST'])
