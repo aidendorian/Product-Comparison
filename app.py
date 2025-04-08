@@ -17,12 +17,106 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 from flask_caching import Cache
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24) # Remember to use a static key for production
 DATABASE = 'product_comparison.db'
 
 # --- Database initialization (No changes needed here) ---
+
+class WebDriverManager:
+    _instance = None
+    _driver_pool = []
+    _max_drivers = 2  # Maximum number of drivers to keep in the pool
+    
+    @classmethod
+    def get_driver(cls):
+        """Get a driver from the pool or create a new one"""
+        if cls._driver_pool:
+            return cls._driver_pool.pop()
+        return cls._create_driver()
+    
+    @classmethod
+    def return_driver(cls, driver):
+        """Return a driver to the pool or quit it"""
+        if driver:
+            try:
+                # Clear cookies to prevent session issues
+                driver.delete_all_cookies()
+                # Navigate to blank page to stop any processes
+                driver.get("about:blank")
+                # Add to pool if not at max capacity
+                if len(cls._driver_pool) < cls._max_drivers:
+                    cls._driver_pool.append(driver)
+                else:
+                    driver.quit()
+            except Exception:
+                # If any error, just quit the driver
+                try:
+                    driver.quit()
+                except:
+                    pass
+    
+    @classmethod
+    def _create_driver(cls):
+        """Create a new optimized WebDriver instance"""
+        options = Options()
+        options.add_argument("--headless=new")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-notifications")
+        options.add_argument("--ignore-certificate-errors")
+        options.add_argument("--disable-popup-blocking")
+        options.add_argument("--log-level=3")  # Minimal logging
+        options.add_argument("--window-size=1920,1080")  # Standard resolution
+        
+        # Set page load strategy to eager to load faster
+        options.page_load_strategy = 'eager'
+        
+        # Random user agent
+        USER_AGENTS = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+        ]
+        options.add_argument(f"user-agent={random.choice(USER_AGENTS)}")
+        
+        # Initialize driver with ChromeDriverManager for automatic driver management
+        try:
+            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+            # Set page load timeout
+            driver.set_page_load_timeout(30)
+            driver.set_script_timeout(20)
+            return driver
+        except Exception as e:
+            print(f"Failed to create WebDriver with ChromeDriverManager: {e}")
+            # Fallback to regular Chrome driver
+            return webdriver.Chrome(options=options)
+    
+    @classmethod
+    def cleanup(cls):
+        """Close all drivers in the pool"""
+        for driver in cls._driver_pool:
+            try:
+                driver.quit()
+            except:
+                pass
+        cls._driver_pool = []
+
+# Register cleanup function to run at Flask app shutdown
+@app.teardown_appcontext
+def shutdown_driver_pool(exception=None):
+    WebDriverManager.cleanup()
+
+# Replace your setup_driver function with this
+def setup_driver():
+    return WebDriverManager.get_driver()
+
 def init_db():
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
