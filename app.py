@@ -14,12 +14,109 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import random
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
+from flask_caching import Cache
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24) # Remember to use a static key for production
 DATABASE = 'product_comparison.db'
 
 # --- Database initialization (No changes needed here) ---
+
+class WebDriverManager:
+    _instance = None
+    _driver_pool = []
+    _max_drivers = 2  # Maximum number of drivers to keep in the pool
+    
+    @classmethod
+    def get_driver(cls):
+        """Get a driver from the pool or create a new one"""
+        if cls._driver_pool:
+            return cls._driver_pool.pop()
+        return cls._create_driver()
+    
+    @classmethod
+    def return_driver(cls, driver):
+        """Return a driver to the pool or quit it"""
+        if driver:
+            try:
+                # Clear cookies to prevent session issues
+                driver.delete_all_cookies()
+                # Navigate to blank page to stop any processes
+                driver.get("about:blank")
+                # Add to pool if not at max capacity
+                if len(cls._driver_pool) < cls._max_drivers:
+                    cls._driver_pool.append(driver)
+                else:
+                    driver.quit()
+            except Exception:
+                # If any error, just quit the driver
+                try:
+                    driver.quit()
+                except:
+                    pass
+    
+    @classmethod
+    def _create_driver(cls):
+        """Create a new optimized WebDriver instance"""
+        options = Options()
+        options.add_argument("--headless=new")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-notifications")
+        options.add_argument("--ignore-certificate-errors")
+        options.add_argument("--disable-popup-blocking")
+        options.add_argument("--log-level=3")  # Minimal logging
+        options.add_argument("--window-size=1920,1080")  # Standard resolution
+        
+        # Set page load strategy to eager to load faster
+        options.page_load_strategy = 'eager'
+        
+        # Random user agent
+        USER_AGENTS = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
+        ]
+        options.add_argument(f"user-agent={random.choice(USER_AGENTS)}")
+        
+        # Initialize driver with ChromeDriverManager for automatic driver management
+        try:
+            driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+            # Set page load timeout
+            driver.set_page_load_timeout(30)
+            driver.set_script_timeout(20)
+            return driver
+        except Exception as e:
+            print(f"Failed to create WebDriver with ChromeDriverManager: {e}")
+            # Fallback to regular Chrome driver
+            return webdriver.Chrome(options=options)
+    
+    @classmethod
+    def cleanup(cls):
+        """Close all drivers in the pool"""
+        for driver in cls._driver_pool:
+            try:
+                driver.quit()
+            except:
+                pass
+        cls._driver_pool = []
+
+# Register cleanup function to run at Flask app shutdown
+@app.teardown_appcontext
+def shutdown_driver_pool(exception=None):
+    WebDriverManager.cleanup()
+
+# Replace your setup_driver function with this
+def setup_driver():
+    return WebDriverManager.get_driver()
+
 def init_db():
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
@@ -107,6 +204,15 @@ def get_db_connection():
     conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
+
+cache = Cache(config={'CACHE_TYPE': 'SimpleCache', 'CACHE_DEFAULT_TIMEOUT': 3600})
+cache.init_app(app)
+
+def save_to_cache(key, value, timeout):
+    cache.set(key, value, timeout=timeout)
+
+def get_from_cache(key):
+    return cache.get(key)
 
 # --- Setup WebDriver for scraping (No changes needed here) ---
 def setup_driver():
@@ -348,51 +454,55 @@ def get_flipkart_product_details(url):
 # --- Find product on Amazon (Updated based on second file approach) ---
 def find_amazon_product(product_name):
     driver = setup_driver()
+    product_url = None
+    
     try:
+        # Construct and navigate to search URL
         search_url = f'https://www.amazon.in/s?k={product_name.replace(" ", "+")}'
         print(f"Navigating to Amazon Search URL: {search_url}")
         driver.get(search_url)
 
-        # Wait for search results
+        # Wait for search results with consistent timeout
         wait_selector = 'div[data-component-type="s-search-result"]'
         print(f"Waiting for Amazon search results: {wait_selector}")
         WebDriverWait(driver, 15).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, wait_selector))
         )
         print("Amazon search results found.")
-        time.sleep(random.uniform(1, 2))
-
-        # Get product URL using BeautifulSoup like in the second file
+        
+        # Use a waiting strategy instead of sleep
+        WebDriverWait(driver, 5).until(
+            EC.visibility_of_all_elements_located((By.CSS_SELECTOR, wait_selector))
+        )
+        
+        # First attempt: BeautifulSoup approach
         soup = BeautifulSoup(driver.page_source, 'html.parser')
-        product_url = None
-        
-        # Try different selectors
         product_containers = soup.select('div[data-component-type="s-search-result"]')
-        if product_containers:
-            for product in product_containers:
-                link_element = product.select_one('a.a-link-normal.s-no-outline')
-                if link_element and link_element.get('href'):
-                    href = link_element.get('href')
-                    if href and 'slredirect' not in href:
-                        product_url = href
-                        if not product_url.startswith('https://'):
-                            product_url = f'https://www.amazon.in{product_url}'
-                        print(f"Found valid Amazon product link: {product_url}")
-                        break
         
-        # If BeautifulSoup approach didn't work, try Selenium directly
+        for product in product_containers:
+            link_element = product.select_one('a.a-link-normal.s-no-outline')
+            if link_element and link_element.get('href'):
+                href = link_element.get('href')
+                if href and 'slredirect' not in href:
+                    product_url = href
+                    if not product_url.startswith('https://'):
+                        product_url = f'https://www.amazon.in{product_url}'
+                    print(f"Found valid Amazon product link: {product_url}")
+                    break
+        
+        # Fallback: Selenium approach if BeautifulSoup didn't find anything
         if not product_url:
             results = driver.find_elements(By.CSS_SELECTOR, wait_selector)
             for product in results:
-                link_selector = 'a.a-link-normal.s-no-outline'
                 try:
-                    link_element = product.find_element(By.CSS_SELECTOR, link_selector)
+                    link_element = product.find_element(By.CSS_SELECTOR, 'a.a-link-normal.s-no-outline')
                     href = link_element.get_attribute('href')
                     if href and 'slredirect' not in href and href.startswith('https://www.amazon.in'):
                         product_url = href
                         print(f"Found valid Amazon product link: {product_url}")
                         break
-                except:
+                except Exception as e:
+                    # Skip this product if link cannot be found
                     continue
 
         return product_url
@@ -404,176 +514,175 @@ def find_amazon_product(product_name):
         if driver:
             driver.quit()
 
-# --- Get Amazon Product Details (Updated based on the second file) ---
+
 def get_amazon_product_details(url):
     driver = setup_driver()
-    product_name = "Product name not found"
-    price = "0"
-    rating = "0"
-    reviews_count = "0"
-    description = "No description available"
-    image_url = ""
-    category = "Unknown"
-    reviews = []
-
+    
+    # Initialize with default values
+    product_data = {
+        'platform': 'Amazon',
+        'name': "Product name not found",
+        'price': 0.0,
+        'rating': 0.0,
+        'reviews_count': 0,
+        'description': "No description available",
+        'image_url': "",
+        'category': "Unknown",
+        'url': url,
+        'reviews': []
+    }
+    
     try:
         print(f"Navigating to Amazon URL: {url}")
         driver.get(url)
-        time.sleep(random.uniform(2, 4))
-
+        
+        # Use wait instead of sleep
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
+        
+        # Create a WebDriverWait object with a consistent timeout
+        wait = WebDriverWait(driver, 10)
+        short_wait = WebDriverWait(driver, 5)
+        
         # Extract product name
-        name_selector = 'productTitle'  # By ID
         try:
-            print(f"Waiting for Amazon name element: ID={name_selector}")
-            product_name = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.ID, name_selector))
-            ).text.strip()
-            print("Amazon name element found.")
-        except Exception as e_name:
-            print(f"Could not extract Amazon product name using ID {name_selector}: {e_name}")
-            product_name = "Product name not found"
-
-        # Price Extraction Logic - combining approaches from both files
-        price_found = False
-        price_selectors_to_try = [
-            '.a-price .a-offscreen',                          # From second file
-            'span.a-price-whole',                             # From first file
-            '.priceToPay .a-offscreen',                       # From first file
-            'span[data-a-color="price"] span.a-offscreen',    # From first file
-            '#priceblock_ourprice',                           # From first file
-            '#priceblock_dealprice',                          # From first file
-            '#price'                                          # From first file
+            name_element = wait.until(EC.presence_of_element_located((By.ID, 'productTitle')))
+            product_data['name'] = name_element.text.strip()
+            print(f"Found product name: {product_data['name']}")
+        except Exception as e:
+            print(f"Could not extract Amazon product name: {e}")
+        
+        # Extract price with multiple selectors
+        price_selectors = [
+            '.a-price .a-offscreen',
+            'span.a-price-whole',
+            '.priceToPay .a-offscreen',
+            'span[data-a-color="price"] span.a-offscreen',
+            '#priceblock_ourprice',
+            '#priceblock_dealprice',
+            '#price'
         ]
-        for selector in price_selectors_to_try:
+        
+        for selector in price_selectors:
             try:
                 price_elements = driver.find_elements(By.CSS_SELECTOR, selector)
-                if price_elements:
-                    for price_element in price_elements:
-                        price_text = price_element.get_attribute('textContent') or price_element.text
-                        if price_text:
-                            price_text = price_text.strip()
-                            cleaned_price = re.sub(r'[^\d.]', '', price_text)
-                            if cleaned_price and cleaned_price.replace('.', '', 1).isdigit() and float(cleaned_price) > 0:
-                                price = cleaned_price
-                                price_found = True
-                                print(f"Found Amazon price using selector '{selector}': {price}")
-                                break
-                    if price_found:
-                        break
-            except Exception as e_price_loop:
+                for price_element in price_elements:
+                    price_text = price_element.get_attribute('textContent') or price_element.text
+                    if price_text:
+                        price_text = price_text.strip()
+                        cleaned_price = re.sub(r'[^\d.]', '', price_text)
+                        if cleaned_price and cleaned_price.replace('.', '', 1).isdigit() and float(cleaned_price) > 0:
+                            product_data['price'] = float(cleaned_price)
+                            print(f"Found price using selector '{selector}': {product_data['price']}")
+                            break
+                if product_data['price'] > 0:
+                    break
+            except Exception:
                 continue
-        if not price_found:
-            print("Could not extract Amazon price using any known selector.")
-            price = "0"
-
-        # Extract rating - using approach from second file
-        rating_selector = 'span.a-icon-alt'
+        
+        # Extract rating
         try:
-            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, rating_selector)))
-            rating_elements = driver.find_elements(By.CSS_SELECTOR, rating_selector)
+            rating_elements = short_wait.until(
+                EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'span.a-icon-alt'))
+            )
             if rating_elements:
                 rating_text = rating_elements[0].get_attribute('textContent')
                 if rating_text:
                     rating_match = re.search(r'(\d+(?:\.\d+)?)\s+out\s+of\s+5', rating_text)
-                    rating = rating_match.group(1) if rating_match else "0"
-            else:
-                rating = "0"
-        except Exception as e_rating:
-            print(f"Could not extract Amazon rating using {rating_selector}: {e_rating}")
-            rating = "0"
-
+                    if rating_match:
+                        product_data['rating'] = float(rating_match.group(1))
+                        print(f"Found rating: {product_data['rating']}")
+        except Exception as e:
+            print(f"Could not extract Amazon rating: {e}")
+        
         # Extract reviews count
-        reviews_count_selector = 'acrCustomerReviewText'  # By ID
         try:
-            reviews_count_element = driver.find_element(By.ID, reviews_count_selector)
+            reviews_count_element = driver.find_element(By.ID, 'acrCustomerReviewText')
             reviews_count_text = reviews_count_element.text.strip()
             reviews_count_match = re.search(r'(\d+(?:,\d+)*)', reviews_count_text)
-            reviews_count = reviews_count_match.group(1).replace(',', '') if reviews_count_match else "0"
-        except Exception as e_rev_count:
-            print(f"Could not extract Amazon reviews count using ID {reviews_count_selector}: {e_rev_count}")
-            reviews_count = "0"
-
-        # Extract description
-        description_selector_1 = 'productDescription'  # By ID
-        description_selector_2 = '#feature-bullets'  # CSS Selector
+            if reviews_count_match:
+                product_data['reviews_count'] = int(reviews_count_match.group(1).replace(',', ''))
+                print(f"Found reviews count: {product_data['reviews_count']}")
+        except Exception as e:
+            print(f"Could not extract Amazon reviews count: {e}")
+        
+        # Extract description - try multiple approaches
         try:
-            description_element = driver.find_element(By.ID, description_selector_1)
-            description = description_element.text.strip()
-            if not description or len(description) < 10:
-                raise Exception("Description too short, trying bullets")
-        except:
+            # First try: Product description
             try:
-                description_element = driver.find_element(By.CSS_SELECTOR, description_selector_2)
-                items = description_element.find_elements(By.CSS_SELECTOR, 'li span.a-list-item')
-                description = "\n".join([item.text.strip() for item in items if item.text.strip()])
-                if not description:
-                    description = description_element.text.strip()
-            except Exception as e_desc:
-                print(f"Could not extract Amazon description using IDs/selectors: {e_desc}")
-                description = "No description available"
-
-        # Extract image
-        image_selector = 'landingImage'  # By ID
-        try:
-            image_element = driver.find_element(By.ID, image_selector)
-            image_url = image_element.get_attribute('src') or image_element.get_attribute('data-old-hires')
-            if not image_url or 'grey-pixel' in image_url or 'spinner' in image_url:
-                image_element = driver.find_element(By.ID, 'imgBlkFront')
-                image_url = image_element.get_attribute('src')
-        except Exception as e_img:
-            print(f"Could not extract Amazon image using ID {image_selector}: {e_img}")
-            image_url = ""
-
-        # Extract category
-        category_selector = '#wayfinding-breadcrumbs_feature_div ul li:last-of-type a'
-        try:
-            category_element = driver.find_element(By.CSS_SELECTOR, category_selector)
-            category = category_element.text.strip()
-        except Exception as e_cat:
-            try:
-                category_selector_alt = 'a.a-link-normal.a-color-tertiary'
-                category_elements = driver.find_elements(By.CSS_SELECTOR, category_selector_alt)
-                if category_elements:
-                    valid_cats = [el.text.strip() for el in category_elements if len(el.text.strip()) > 3]
-                    category = valid_cats[0] if valid_cats else "Unknown"
-                else:
-                    category = "Unknown"
+                description_element = driver.find_element(By.ID, 'productDescription')
+                product_data['description'] = description_element.text.strip()
             except:
-                print(f"Could not extract Amazon category using selectors: {e_cat}")
-                category = "Unknown"
-
-        # Get reviews using BeautifulSoup like in the second file
-        reviews = []
+                # Second try: Feature bullets
+                try:
+                    bullets_element = driver.find_element(By.CSS_SELECTOR, '#feature-bullets')
+                    items = bullets_element.find_elements(By.CSS_SELECTOR, 'li span.a-list-item')
+                    bullet_points = [item.text.strip() for item in items if item.text.strip()]
+                    if bullet_points:
+                        product_data['description'] = "\n".join(bullet_points)
+                    else:
+                        product_data['description'] = bullets_element.text.strip()
+                except Exception as e:
+                    print(f"Could not extract Amazon description: {e}")
+        except Exception as e:
+            print(f"Error in description extraction: {e}")
+        
+        # Extract image URL
         try:
-            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, "reviewsMedley")))
-            time.sleep(random.uniform(1, 2))
+            # Try main image first
+            try:
+                image_element = driver.find_element(By.ID, 'landingImage')
+                image_url = image_element.get_attribute('src') or image_element.get_attribute('data-old-hires')
+                if image_url and 'grey-pixel' not in image_url and 'spinner' not in image_url:
+                    product_data['image_url'] = image_url
+            except:
+                # Try alternative image
+                try:
+                    image_element = driver.find_element(By.ID, 'imgBlkFront')
+                    product_data['image_url'] = image_element.get_attribute('src')
+                except Exception as e:
+                    print(f"Could not extract Amazon image: {e}")
+        except Exception as e:
+            print(f"Error in image extraction: {e}")
+        
+        # Extract category
+        try:
+            # Try breadcrumb navigation first
+            try:
+                category_element = driver.find_element(By.CSS_SELECTOR, '#wayfinding-breadcrumbs_feature_div ul li:last-of-type a')
+                product_data['category'] = category_element.text.strip()
+            except:
+                # Try alternative category links
+                try:
+                    category_elements = driver.find_elements(By.CSS_SELECTOR, 'a.a-link-normal.a-color-tertiary')
+                    valid_categories = [el.text.strip() for el in category_elements if len(el.text.strip()) > 3]
+                    if valid_categories:
+                        product_data['category'] = valid_categories[0]
+                except Exception as e:
+                    print(f"Could not extract Amazon category: {e}")
+        except Exception as e:
+            print(f"Error in category extraction: {e}")
+        
+        # Extract reviews
+        try:
+            # Wait for reviews section to load
+            short_wait.until(EC.presence_of_element_located((By.ID, "reviewsMedley")))
+            
+            # Use BeautifulSoup for more reliable parsing
             soup = BeautifulSoup(driver.page_source, 'html.parser')
-            # Using selector from the second file
             review_elements = soup.select("div[data-hook='review-collapsed'] span")[:3]
-            reviews = [review.text.strip() for review in review_elements if review and review.text.strip()]
-            print(f"Found {len(reviews)} reviews using BeautifulSoup.")
-        except Exception as review_e:
-            print(f"Could not scrape Amazon reviews: {review_e}")
-            pass
-
-        print(f"Finished scraping Amazon: Name='{product_name}', Price='{price}', Rating='{rating}'")
-
-        final_price = float(price) if isinstance(price, str) and price.replace('.', '', 1).isdigit() else 0.0
-        final_rating = float(rating) if isinstance(rating, str) and rating.replace('.', '', 1).isdigit() else 0.0
-        final_reviews_count = int(reviews_count) if isinstance(reviews_count, str) and reviews_count.isdigit() else 0
-
-        return {
-            'platform': 'Amazon', 'name': product_name, 'price': final_price, 'rating': final_rating,
-            'reviews_count': final_reviews_count, 'description': description, 'image_url': image_url,
-            'category': category, 'url': url, 'reviews': reviews
-        }
+            product_data['reviews'] = [review.text.strip() for review in review_elements if review and review.text.strip()]
+            print(f"Found {len(product_data['reviews'])} reviews")
+        except Exception as e:
+            print(f"Could not extract Amazon reviews: {e}")
+        
+        print(f"Finished scraping Amazon: Name='{product_data['name']}', Price='{product_data['price']}', Rating='{product_data['rating']}'")
+        return product_data
+        
     except Exception as e:
-        print(f"General Error scraping Amazon product details: {e}")
-        return {
-            'platform': 'Amazon', 'name': "Error fetching product", 'price': 0.0, 'rating': 0.0,
-            'reviews_count': 0, 'description': "Error fetching product details", 'image_url': "",
-            'category': "", 'url': url, 'reviews': []
-        }
+        print(f"General error scraping Amazon product details: {e}")
+        return product_data
     finally:
         if driver:
             driver.quit()
@@ -760,69 +869,99 @@ def search():
 
     flipkart_data = None
     amazon_data = None
-    flipkart_listing_id = None # To pass to template if needed
-    amazon_listing_id = None   # To pass to template if needed
-
+    flipkart_listing_id = None
+    amazon_listing_id = None
+    comparison = {}
+    
+    # Create cache key for this search
+    cache_key = f"search_{product_name.lower().strip()}"
+    
+    # Check if results are in cache
+    cached_result = get_from_cache(cache_key)
+    if cached_result:
+        print("Returning cached search results")
+        return render_template('results.html', **cached_result)
+    
+    # If not in cache, perform parallel scraping
     try:
-        # --- Flipkart ---
-        print("\n--- Starting Flipkart Search ---")
-        flipkart_url = find_flipkart_product(product_name)
-        if flipkart_url:
-            flipkart_data = get_flipkart_product_details(flipkart_url)
-            if flipkart_data and flipkart_data['name'] != "Error fetching product":
-                 _, flipkart_listing_id = save_product_data(flipkart_data)
-            else:
-                 flash('Failed to fetch details from Flipkart.')
-                 flipkart_data = {'name': "Error fetching product"} # Ensure dict exists
-        else:
-            flash('Could not find product link on Flipkart.')
-            flipkart_data = {'name': "Product not found"} # Ensure dict exists
-
-
-        # --- Amazon ---
-        print("\n--- Starting Amazon Search ---")
-        # Use the original search term or the potentially cleaner Flipkart name?
-        # Using Flipkart name might find a closer match, but could fail if FK name is bad.
-        search_term_for_amazon = flipkart_data.get('name') if flipkart_data and flipkart_data.get('name') not in ["Error fetching product", "Product not found"] else product_name
-        print(f"Searching Amazon for: {search_term_for_amazon}")
-
-        amazon_url = find_amazon_product(search_term_for_amazon)
-        if amazon_url:
-            amazon_data = get_amazon_product_details(amazon_url)
-            if amazon_data and amazon_data['name'] != "Error fetching product":
-                _, amazon_listing_id = save_product_data(amazon_data)
-            else:
-                 flash('Failed to fetch details from Amazon.')
-                 amazon_data = {'name': "Error fetching product"} # Ensure dict exists
-        else:
-            flash('Could not find an equivalent product link on Amazon.')
-            amazon_data = {'name': "Product not found"} # Ensure dict exists
-
-        # --- Comparison ---
-        print("\n--- Comparing Products ---")
+        start_time = time.time()
+        print("\n--- Starting Parallel Product Search ---")
+        
+        # Create a thread pool
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit both scraping tasks to run in parallel
+            flipkart_future = executor.submit(get_flipkart_data, product_name)
+            amazon_future = executor.submit(get_amazon_data, product_name)
+            
+            # Retrieve results as they complete
+            for future in as_completed([flipkart_future, amazon_future]):
+                result = future.result()
+                if result and 'platform' in result:
+                    if result['platform'] == 'Flipkart':
+                        flipkart_data = result
+                        if flipkart_data and flipkart_data['name'] != "Error fetching product":
+                            _, flipkart_listing_id = save_product_data(flipkart_data)
+                    elif result['platform'] == 'Amazon':
+                        amazon_data = result
+                        if amazon_data and amazon_data['name'] != "Error fetching product":
+                            _, amazon_listing_id = save_product_data(amazon_data)
+        
         # Ensure both data dictionaries exist before comparing
-        if flipkart_data and amazon_data:
+        if flipkart_data and amazon_data and flipkart_data.get('name') != "Error fetching product" and amazon_data.get('name') != "Error fetching product":
             comparison = compare_products(flipkart_data, amazon_data)
         else:
-            comparison = {} # Empty comparison if data is missing
-            flash("Could not compare products due to missing data.")
-
-        print("--- Search Complete ---")
-        return render_template('results.html',
-                               flipkart=flipkart_data,
-                               amazon=amazon_data,
-                               comparison=comparison,
-                               flipkart_listing_id=flipkart_listing_id, # Pass IDs for tracking
-                               amazon_listing_id=amazon_listing_id)
+            # Set default values if any data is missing
+            if not flipkart_data:
+                flipkart_data = {'name': "Product not found", 'platform': 'Flipkart'}
+                flash('Could not find product on Flipkart.')
+            if not amazon_data:
+                amazon_data = {'name': "Product not found", 'platform': 'Amazon'}
+                flash('Could not find product on Amazon.')
+            if comparison == {}:
+                flash("Could not compare products due to missing data.")
+        
+        # Package the result data
+        result_data = {
+            'flipkart': flipkart_data,
+            'amazon': amazon_data,
+            'comparison': comparison,
+            'flipkart_listing_id': flipkart_listing_id,
+            'amazon_listing_id': amazon_listing_id
+        }
+        
+        # Cache the results
+        save_to_cache(cache_key, result_data, 3600) # Cache for 1 hour
+        
+        print(f"--- Search Complete in {time.time() - start_time:.2f} seconds ---")
+        return render_template('results.html', **result_data)
 
     except Exception as e:
         flash(f'An unexpected error occurred during search: {str(e)}')
-        print(f"Error in /search route: {e}") # Log detailed error
-        # Optionally add more detailed logging here
-        # import traceback
-        # print(traceback.format_exc())
+        print(f"Error in /search route: {e}")
         return redirect(url_for('index'))
 
+
+def get_flipkart_data(product_name):
+    try:
+        print("\n--- Starting Flipkart Search ---")
+        flipkart_url = find_flipkart_product(product_name)
+        if flipkart_url:
+            return get_flipkart_product_details(flipkart_url)
+        return {'name': "Product not found", 'platform': 'Flipkart'}
+    except Exception as e:
+        print(f"Error in Flipkart search: {e}")
+        return {'name': "Error fetching product", 'platform': 'Flipkart'}
+
+def get_amazon_data(product_name):
+    try:
+        print("\n--- Starting Amazon Search ---")
+        amazon_url = find_amazon_product(product_name)
+        if amazon_url:
+            return get_amazon_product_details(amazon_url)
+        return {'name': "Product not found", 'platform': 'Amazon'}
+    except Exception as e:
+        print(f"Error in Amazon search: {e}")
+        return {'name': "Error fetching product", 'platform': 'Amazon'}
 
 # --- User Auth & Tracking Routes (No changes needed here) ---
 @app.route('/register', methods=['GET', 'POST'])
