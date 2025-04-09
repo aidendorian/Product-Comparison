@@ -1047,11 +1047,13 @@ def track_price():
 
     listing_id = request.form.get('listing_id')
     threshold_str = request.form.get('threshold', '').strip()
+    
+    # Get the original URL that sent the form (likely the results page)
+    original_url = request.form.get('redirect_url') or request.referrer or url_for('index')
 
     if not listing_id:
          flash('Invalid product listing selected.')
-         # Redirect back to previous page or index? Need referrer handling ideally.
-         return redirect(request.referrer or url_for('index'))
+         return redirect(original_url)
 
     # Validate threshold
     threshold = None
@@ -1060,11 +1062,10 @@ def track_price():
             threshold = float(threshold_str)
             if threshold < 0:
                  flash('Notification threshold cannot be negative.')
-                 return redirect(request.referrer or url_for('index'))
+                 return redirect(original_url)
         except ValueError:
             flash('Invalid notification threshold entered.')
-            return redirect(request.referrer or url_for('index'))
-
+            return redirect(original_url)
 
     conn = get_db_connection()
     c = conn.cursor()
@@ -1109,8 +1110,9 @@ def track_price():
     finally:
          conn.close()
 
-    # Redirect back to the page the user came from (results page) or index
-    return redirect(request.referrer or url_for('index'))
+    # Redirect back to the original URL
+    return redirect(original_url)
+    # return redirect(request.referrer or url_for('index'))
 
 
 @app.route('/history')
