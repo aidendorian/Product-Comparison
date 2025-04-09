@@ -11,12 +11,12 @@
     }
     
     .status-active {
-        color: var(--secondary-color);
+        color: #4cc9f0;
         font-weight: bold;
     }
     
     .status-inactive {
-        color: var(--danger-color);
+        color: #ff006e;
     }
     
     .tracking-controls {
@@ -24,13 +24,90 @@
         gap: 10px;
     }
     
+    /* Improved no-products styling for better visibility */
     .no-products {
-        background-color: var(--light-color);
+        background-color: rgba(255, 255, 255, 0.1);
         border-radius: 10px;
         padding: 30px;
         text-align: center;
         margin: 40px auto;
         max-width: 600px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+    }
+    
+    /* Enhanced table styling for better date and price visibility */
+    .table-striped>tbody>tr:nth-of-type(odd) {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .table-striped>tbody>tr:nth-of-type(even) {
+        background-color: rgba(0, 0, 0, 0.3);
+    }
+    
+    .table {
+        color: #ffffff;
+        font-weight: 500;
+    }
+    
+    /* Specific styles for date and price cells */
+    .table td.date-cell {
+        color: #ffffff;
+        font-weight: 500;
+    }
+    
+    .table td.price-cell {
+        color: #4cc9f0;
+        font-weight: 600;
+    }
+    
+    /* Table header styles */
+    .table thead th {
+        background-color: rgba(76, 201, 240, 0.2);
+        color: #ffffff;
+        font-weight: bold;
+        border-bottom: 2px solid rgba(76, 201, 240, 0.5);
+    }
+    
+    /* Link color improvement */
+    a.product-link {
+        color: #4cc9f0;
+        word-break: break-all;
+        text-decoration: none;
+    }
+    
+    a.product-link:hover {
+        color: #3a86ff;
+        text-decoration: underline;
+    }
+    
+    /* Card header styling */
+    .card-header {
+        background-color: rgba(0, 0, 0, 0.2);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Text in alert boxes */
+    .alert-info {
+        background-color: rgba(58, 134, 255, 0.1);
+        border-color: rgba(58, 134, 255, 0.2);
+        color: #ffffff;
+    }
+    
+    /* Badge enhancements */
+    .badge.bg-success {
+        background-color: #06d6a0 !important;
+        color: #000000;
+    }
+    
+    .badge.bg-secondary {
+        background-color: #6c757d !important;
+        color: #ffffff;
+    }
+    
+    /* Text-muted improvement */
+    .text-muted {
+        color: #c0c0c0 !important;
     }
 </style>
 {% endblock %}
@@ -73,7 +150,7 @@
                             </div>
                             <div class="col-md-8">
                                 <h6>Product Link:</h6>
-                                <a href="{{ product.product_link }}" target="_blank" class="d-block mb-3">
+                                <a href="{{ product.product_link }}" target="_blank" class="d-block mb-3 product-link">
                                     {{ product.product_link }}
                                 </a>
                                 
@@ -83,6 +160,7 @@
                                     </div>
                                 {% else %}
                                     <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
                                         No price history data available yet.
                                     </div>
                                 {% endif %}
@@ -90,9 +168,9 @@
                         </div>
                         
                         {% if product.history %}
-                            <h6>Price History</h6>
+                            <h6 class="mt-3 mb-3">Price History</h6>
                             <div class="table-responsive">
-                                <table class="table table-sm table-striped">
+                                <table class="table table-sm table-striped table-hover">
                                     <thead>
                                         <tr>
                                             <th>Date</th>
@@ -102,8 +180,8 @@
                                     <tbody>
                                         {% for entry in product.history %}
                                             <tr>
-                                                <td>{{ entry.timestamp }}</td>
-                                                <td>₹{{ entry.price_value }}</td>
+                                                <td class="date-cell">{{ entry.timestamp }}</td>
+                                                <td class="price-cell">₹{{ entry.price_value }}</td>
                                             </tr>
                                         {% endfor %}
                                     </tbody>
@@ -154,11 +232,11 @@
                         datasets: [{
                             label: 'Price (₹)',
                             data: prices{{ product.tracking_id }},
-                            backgroundColor: 'rgba(52, 152, 219, 0.2)',
-                            borderColor: 'rgba(52, 152, 219, 1)',
+                            backgroundColor: 'rgba(76, 201, 240, 0.2)',
+                            borderColor: 'rgba(76, 201, 240, 1)',
                             borderWidth: 2,
                             tension: 0.1,
-                            pointBackgroundColor: 'rgba(52, 152, 219, 1)',
+                            pointBackgroundColor: 'rgba(76, 201, 240, 1)',
                             pointRadius: 4
                         }]
                     },
@@ -168,15 +246,35 @@
                         scales: {
                             y: {
                                 beginAtZero: false,
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
                                 ticks: {
+                                    color: '#ffffff',
                                     callback: function(value) {
                                         return '₹' + value;
                                     }
                                 }
+                            },
+                            x: {
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: '#ffffff'
+                                }
                             }
                         },
                         plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#ffffff'
+                                }
+                            },
                             tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                                titleColor: '#ffffff',
+                                bodyColor: '#ffffff',
                                 callbacks: {
                                     label: function(context) {
                                         return '₹' + context.parsed.y;
