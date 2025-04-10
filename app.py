@@ -1111,7 +1111,7 @@ def track_price():
          conn.close()
 
     # Redirect back to the original URL
-    return redirect(original_url)
+    return redirect(url_for('price_history'))
     # return redirect(request.referrer or url_for('index'))
 
 

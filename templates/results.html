@@ -80,6 +80,7 @@
                     {% if session.get('user_id') %}
                         <form method="POST" action="{{ url_for('track_price') }}">
                             <input type="hidden" name="listing_id" value="{{ flipkart_listing_id }}">
+                            <input type="hidden" name="redirect_url" value="{{ request.url }}">
                             <div class="input-group mt-2">
                                 <input type="number" name="threshold" class="form-control" 
                                        placeholder="Price alert threshold" step="0.01" min="0" required>
@@ -168,6 +169,7 @@
                     {% if session.get('user_id') %}
                         <form method="POST" action="{{ url_for('track_price') }}">
                             <input type="hidden" name="listing_id" value="{{ amazon_listing_id }}">
+                            <input type="hidden" name="redirect_url" value="{{ request.url }}">
                             <div class="input-group mt-2">
                                 <input type="number" name="threshold" class="form-control" 
                                        placeholder="Price alert threshold" step="0.01" min="0" required>
@@ -275,5 +277,18 @@
     <a href="{{ url_for('index') }}" class="btn btn-primary">
         <i class="bi bi-search"></i> Try Another Search
     </a>
+    
+    <!-- Quick price tracking form -->
+    <div class="mt-3">
+        <h5>Quick Price Tracking</h5>
+        <form method="post" action="{{ url_for('track_price') }}" class="d-inline-flex align-items-center justify-content-center">
+            <input type="hidden" name="listing_id" value="{{ listing_id }}">
+            <input type="hidden" name="redirect_url" value="{{ request.url }}">
+            <input type="text" name="threshold" placeholder="Price threshold (optional)" class="form-control me-2" style="max-width: 200px;">
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-bell"></i> Track Price
+            </button>
+        </form>
+    </div>
 </div>
 {% endblock %}
