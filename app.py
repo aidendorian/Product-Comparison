@@ -24,7 +24,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from werkzeug.middleware.proxy_fix import ProxyFix
-import timedelta
+from datetime import timedelta
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24) # Remember to use a static key for production
