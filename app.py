@@ -19,13 +19,59 @@ import time
 from flask_caching import Cache
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
+from flask_compress import Compress
+import logging
+from logging.handlers import RotatingFileHandler
+import os
+from werkzeug.middleware.proxy_fix import ProxyFix
+import timedelta
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24) # Remember to use a static key for production
 DATABASE = 'product_comparison.db'
 
-# --- Database initialization (No changes needed here) ---
+compress = Compress()
 
+# Configure Flask app with optimizations
+def configure_app(app):
+    # Enable compression
+    compress.init_app(app)
+    
+    # Fix for proper IP address handling behind proxies
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+    
+    # Configure logging
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+    
+    file_handler = RotatingFileHandler('logs/price_comparison.log', maxBytes=10240000, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    ))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('Price Comparison startup')
+    
+    # Configure session
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+    app.config['SESSION_FILE_DIR'] = os.path.join(os.getcwd(), 'flask_session')
+    app.config['SESSION_FILE_THRESHOLD'] = 100  # Number of sessions in session dir
+    
+    # Configure template caching
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 86400  # 1 day
+    app.config['TEMPLATES_AUTO_RELOAD'] = False  # Disable in production
+    
+    # Additional configurations
+    app.config['JSON_SORT_KEYS'] = False  # Preserve JSON order
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max upload
+
+# Update the main execution block
+
+
+
+# --- Database initialization (No changes needed here) ---
 class WebDriverManager:
     _instance = None
     _driver_pool = []
@@ -1227,4 +1273,15 @@ def delete_tracking(tracking_id):
 if __name__ == '__main__':
     init_db()
     # Consider using Waitress or Gunicorn for production instead of debug=True
-    app.run(host='0.0.0.0', port=5001, debug=True) # Running on different port just in case
+    configure_app(app)
+    
+    # Use Waitress for production
+    try:
+        from waitress import serve
+        print("Starting Waitress server...")
+        serve(app, host='0.0.0.0', port=5001, threads=4)
+    except ImportError:
+        # Fallback to Flask development server
+        print("Waitress not available. Using Flask development server (not recommended for production)")
+        app.run(host='0.0.0.0', port=5001, debug=False)
+     # Running on different port just in case
