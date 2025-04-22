@@ -1269,19 +1269,14 @@ def delete_tracking(tracking_id):
 
     return redirect(url_for('price_history'))
 
-# --- Main Execution ---
 if __name__ == '__main__':
     init_db()
-    # Consider using Waitress or Gunicorn for production instead of debug=True
     configure_app(app)
     
-    # Use Waitress for production
     try:
         from waitress import serve
         print("Starting Waitress server...")
         serve(app, host='0.0.0.0', port=5001, threads=4)
     except ImportError:
-        # Fallback to Flask development server
         print("Waitress not available. Using Flask development server (not recommended for production)")
         app.run(host='0.0.0.0', port=5001, debug=False)
-     # Running on different port just in case
